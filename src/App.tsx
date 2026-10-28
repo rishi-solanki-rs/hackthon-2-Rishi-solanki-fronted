@@ -61,12 +61,14 @@ export const App: React.FC = () => {
 
               {/* 10. Create Listing */}
               <Route path="/my/listings/new" element={<CreateListingPage />} />
+              <Route path="/listing/new" element={<CreateListingPage />} />
 
               {/* 11. Edit Listing */}
               <Route path="/my/listings/:id/edit" element={<EditListingPage />} />
 
               {/* 12. Requester Outgoing Tracking */}
               <Route path="/my/requests" element={<MyRequestsPage />} />
+              <Route path="/requests" element={<MyRequestsPage />} />
 
               {/* 13. Owner Incoming Inbox */}
               <Route path="/inbox" element={<OwnerInboxPage />} />
@@ -85,6 +87,7 @@ export const App: React.FC = () => {
 
               {/* 18. Guidelines, Safety & Damage Protocol */}
               <Route path="/help" element={<HelpSafetyPage />} />
+              <Route path="/safety" element={<HelpSafetyPage />} />
 
               {/* Fallback */}
               <Route path="*" element={<LandingPage />} />

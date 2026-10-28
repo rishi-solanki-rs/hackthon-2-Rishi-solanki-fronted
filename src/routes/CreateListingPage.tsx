@@ -139,6 +139,12 @@ export const CreateListingPage: React.FC = () => {
             className="w-full px-3 py-2 text-sm bg-surface-secondary border border-surface-border rounded-xl focus-ring"
             required
           />
+          {title.trim().length > 0 && evaluateItemSafety(title).isBlocked && (
+            <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-xs text-red-700">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+              <span>{evaluateItemSafety(title).warning || 'Prohibited item under community safety guidelines.'}</span>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
