@@ -1,18 +1,32 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowUp, AlertCircle, ChevronDown, Clock, Home } from 'lucide-react';
+import { ArrowUp, AlertCircle, Palette, Tv, ListChecks, PackageCheck, MessageSquareText } from 'lucide-react';
 import { FeatureIcon } from '../components/brand/sidekit-icons';
 import { sidekitService } from '../services';
 
 const SUGGESTIONS = [
-  'Drawing and colouring with my kids this weekend',
-  'Mount a TV and two shelves on the living room wall',
-  'Birthday party at home for 20 people',
-  'Deep clean the balcony and AC outdoor unit',
-  'Shifting to a new flat in the same society',
-  'Camping trip for two this weekend',
-  'Bake a cake for my mother’s birthday',
-  'Laptop is slow and the battery drains fast',
+  { icon: Palette, text: 'Drawing and colouring with my kids this weekend' },
+  { icon: Tv, text: 'Mount a TV and two shelves on the living room wall' },
+];
+
+const TYPEWRITER_PHRASES = [
+  'I want to do drawing with my kids…',
+  'Birthday party at home for 20 people…',
+  'Shifting to a new flat next week…',
+  'Deep clean the balcony this Sunday…',
+];
+
+// Duration drives how many days rental prices are calculated for on the options page
+const DURATIONS = [
+  { value: 'A few hours', label: 'A few hours' },
+  { value: '1 day', label: '1 day' },
+  { value: 'Full weekend', label: 'Full weekend' },
+];
+
+const STEPS = [
+  { icon: MessageSquareText, title: 'Describe it', text: 'Any language, a line is enough' },
+  { icon: ListChecks, title: 'Tick what you own', text: 'We only find the rest' },
+  { icon: PackageCheck, title: 'Borrow, rent or buy', text: 'Neighbours first, shops after' },
 ];
 
 const MOUNTING_TASK = /\b(shelf|shelves|mount|mounting|frame|frames|mirror|tv|bracket|hang|hanging|cabinet|curtain rod|wall)\b/i;
@@ -30,87 +44,97 @@ const SHELF_LOADS = [
   { value: 'heavy', label: 'Heavy (> 15 kg)' },
 ];
 
-const SCOPES = ['Small touchup', 'Standard flat', 'Full renovation'];
-const DURATIONS = ['A few hours', '1 day', 'Full weekend'];
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(() => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onChange = () => setReduced(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return reduced;
+}
 
-interface ChoiceQuestionProps {
-  question: string;
+/** Types and erases example phrases one character at a time. */
+function useTypewriter(phrases: string[], enabled: boolean): string {
+  const [text, setText] = useState('');
+  useEffect(() => {
+    if (!enabled) return;
+    let phrase = 0;
+    let chars = 0;
+    let deleting = false;
+    let timer: number;
+    const tick = () => {
+      const full = phrases[phrase];
+      chars += deleting ? -1 : 1;
+      setText(full.slice(0, chars));
+      let delay = deleting ? 25 : 55;
+      if (!deleting && chars === full.length) {
+        deleting = true;
+        delay = 1600;
+      } else if (deleting && chars === 0) {
+        deleting = false;
+        phrase = (phrase + 1) % phrases.length;
+        delay = 350;
+      }
+      timer = window.setTimeout(tick, delay);
+    };
+    timer = window.setTimeout(tick, 400);
+    return () => window.clearTimeout(timer);
+  }, [enabled, phrases]);
+  return enabled ? text : '';
+}
+
+interface ChipGroupProps {
+  label: React.ReactNode;
   options: { value: string; label: string }[];
   value: string;
   onChange: (v: string) => void;
+  allowEmpty?: boolean;
 }
 
-/** A bounded clarifying question rendered as an assistant chat bubble with answer chips. */
-const ChoiceQuestion: React.FC<ChoiceQuestionProps> = ({ question, options, value, onChange }) => (
-  <div className="flex items-start gap-2.5">
-    <span className="w-7 h-7 rounded-full bg-evergreen/10 flex items-center justify-center shrink-0" aria-hidden="true">
-      <FeatureIcon name="sparkle" size={14} />
-    </span>
-    <fieldset className="flex-1 min-w-0 space-y-2">
-      <legend className="text-sm text-ink bg-surface border border-surface-border rounded-2xl rounded-tl-sm px-3.5 py-2 mb-2 inline-block">
-        {question}
-      </legend>
-      <div className="flex flex-wrap gap-1.5">
-        {options.map((o) => {
-          const active = value === o.value;
-          return (
-            <button
-              key={o.value}
-              type="button"
-              aria-pressed={active}
-              onClick={() => onChange(active ? '' : o.value)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors focus-ring ${
-                active ? 'bg-brand text-white border-transparent' : 'bg-surface border-surface-border text-ink-muted hover:text-ink hover:border-evergreen/40'
-              }`}
-            >
-              {o.label}
-            </button>
-          );
-        })}
-      </div>
-    </fieldset>
-  </div>
-);
-
-const PillSelect: React.FC<{ id: string; label: string; icon: React.ReactNode; value: string; options: string[]; onChange: (v: string) => void }> = ({
-  id,
-  label,
-  icon,
-  value,
-  options,
-  onChange,
-}) => (
-  <label
-    htmlFor={id}
-    className="relative inline-flex items-center gap-1.5 pl-2.5 pr-2 py-1 rounded-full border border-surface-border bg-surface-secondary text-xs text-ink-muted hover:text-ink focus-within:ring-2 focus-within:ring-evergreen/40"
-  >
-    {icon}
-    <span className="sr-only">{label}</span>
-    <select
-      id={id}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="appearance-none bg-transparent text-xs text-ink pr-0.5 outline-none cursor-pointer"
-    >
-      {options.map((o) => (
-        <option key={o}>{o}</option>
-      ))}
-    </select>
-    <ChevronDown className="w-3 h-3 pointer-events-none" aria-hidden="true" />
-  </label>
+const ChipGroup: React.FC<ChipGroupProps> = ({ label, options, value, onChange, allowEmpty = true }) => (
+  <fieldset className="flex flex-wrap items-center gap-1.5">
+    <legend className="contents">
+      <span className="text-xs text-ink-muted mr-1">{label}</span>
+    </legend>
+    {options.map((o) => {
+      const active = value === o.value;
+      return (
+        <button
+          key={o.value}
+          type="button"
+          aria-pressed={active}
+          onClick={() => onChange(active && allowEmpty ? '' : o.value)}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-200 focus-ring ${
+            active
+              ? 'bg-brand text-white border-transparent shadow-sm'
+              : 'bg-surface border-surface-border text-ink-muted hover:text-ink hover:border-evergreen/40 motion-safe:hover:-translate-y-px'
+          }`}
+        >
+          {o.label}
+        </button>
+      );
+    })}
+  </fieldset>
 );
 
 export const PlanNewPage: React.FC = () => {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const reducedMotion = usePrefersReducedMotion();
   const [task, setTask] = useState(params.get('task') || '');
-  const [scope, setScope] = useState('Standard flat');
   const [duration, setDuration] = useState('1 day');
   const [wallType, setWallType] = useState('');
   const [shelfLoad, setShelfLoad] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const trimmed = task.trim();
+  const canSubmit = trimmed.length >= 3 && !isSubmitting;
+  const isMountingTask = MOUNTING_TASK.test(task);
+  const typed = useTypewriter(TYPEWRITER_PHRASES, !task && !reducedMotion && !isSubmitting);
 
   useEffect(() => {
     const t = params.get('task');
@@ -129,16 +153,12 @@ export const PlanNewPage: React.FC = () => {
     el.style.height = `${Math.min(el.scrollHeight, 240)}px`;
   }, [task]);
 
-  const trimmed = task.trim();
-  const canSubmit = trimmed.length >= 3 && !isSubmitting;
-  const isMountingTask = MOUNTING_TASK.test(task);
-
   const submit = async () => {
     if (!canSubmit) return;
     setError(null);
     setIsSubmitting(true);
 
-    const answers: Record<string, string> = { scope, duration };
+    const answers: Record<string, string> = { duration };
     if (isMountingTask) {
       if (wallType) answers.wall_type = wallType;
       if (shelfLoad) answers.shelf_load = shelfLoad;
@@ -161,57 +181,67 @@ export const PlanNewPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-4 pt-10 pb-16 sm:pt-16 space-y-6">
-      <div className="text-center space-y-2">
-        <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-evergreen bg-evergreen/10 px-2.5 py-1 rounded-full">
-          <FeatureIcon name="sparkle" size={14} />
-          AI task planner
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-ink tracking-tight">What are you working on?</h1>
-        <p className="text-sm text-ink-muted">
-          Tell Sidekit the task in your own words — any language is fine. Press Enter to send, Shift+Enter for a new line.
-        </p>
+    <div className="relative overflow-hidden">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-24 h-[420px] flex justify-center">
+        <div className="w-[640px] max-w-full h-full rounded-full bg-evergreen/15 blur-3xl motion-safe:animate-glow" />
       </div>
 
-      <form
-        data-tour="task-composer"
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit();
-        }}
-        className="bg-surface border border-surface-border rounded-3xl shadow-sm focus-within:border-evergreen/50 focus-within:shadow-md transition-shadow"
-      >
-        <label htmlFor="task-input" className="sr-only">
-          Describe your task
-        </label>
-        <textarea
-          id="task-input"
-          ref={inputRef}
-          rows={3}
-          value={task}
-          onChange={(e) => setTask(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-              e.preventDefault();
-              submit();
-            }
-          }}
-          placeholder="e.g. I want to do drawing with my kids this weekend…"
-          className="w-full px-5 pt-4 pb-2 text-base bg-transparent text-ink placeholder:text-ink-subtle resize-none outline-none rounded-t-3xl"
-          maxLength={500}
-          aria-describedby="task-hint"
-        />
-        <div className="flex items-center gap-2 px-3 pb-3 pt-1">
-          <PillSelect id="scope" label="Scope" icon={<Home className="w-3.5 h-3.5" aria-hidden="true" />} value={scope} options={SCOPES} onChange={setScope} />
-          <PillSelect id="duration" label="How long" icon={<Clock className="w-3.5 h-3.5" aria-hidden="true" />} value={duration} options={DURATIONS} onChange={setDuration} />
-          <span id="task-hint" className="ml-auto text-[11px] text-ink-subtle hidden md:inline tabular-nums" title="Enter to send, Shift+Enter for a new line">
-            {trimmed.length}/500
+      <div className="relative max-w-2xl mx-auto px-4 pt-12 pb-20 sm:pt-20 space-y-7">
+        <div className="text-center space-y-3 motion-safe:animate-fade-up">
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-evergreen bg-evergreen/10 border border-evergreen/20 px-3 py-1 rounded-full">
+            <FeatureIcon name="sparkle" size={14} />
+            AI task planner
           </span>
+          <h1 className="text-3xl sm:text-4xl font-bold text-ink tracking-tight">What are you working on?</h1>
+          <p className="text-sm sm:text-base text-ink-muted max-w-md mx-auto">
+            Describe the task in your own words. Sidekit builds the checklist and finds each item nearby.
+          </p>
+        </div>
+
+        <form
+          data-tour="task-composer"
+          onSubmit={(e) => {
+            e.preventDefault();
+            submit();
+          }}
+          style={{ animationDelay: '80ms' }}
+          className="relative flex items-end gap-2 p-2 pl-5 bg-surface border border-surface-border rounded-3xl shadow-lg shadow-ink/5 focus-within:border-evergreen/60 focus-within:ring-4 focus-within:ring-evergreen/10 transition-all motion-safe:animate-fade-up"
+        >
+          <label htmlFor="task-input" className="sr-only">
+            Describe your task
+          </label>
+          <div className="relative flex-1 min-w-0">
+            {typed && (
+              <span aria-hidden="true" className="pointer-events-none absolute left-0 top-3 text-base text-ink-subtle truncate max-w-full">
+                {typed}
+                <span className="inline-block w-px h-4 ml-0.5 align-middle bg-ink-subtle motion-safe:animate-caret" />
+              </span>
+            )}
+            <textarea
+              id="task-input"
+              ref={inputRef}
+              rows={1}
+              value={task}
+              onChange={(e) => setTask(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  submit();
+                }
+              }}
+              placeholder={reducedMotion ? 'e.g. I want to do drawing with my kids' : ''}
+              aria-describedby="task-hint"
+              className="w-full min-h-[48px] py-3 text-base bg-transparent text-ink placeholder:text-ink-subtle resize-none outline-none"
+              maxLength={500}
+            />
+          </div>
           <button
             type="submit"
             disabled={!canSubmit}
             aria-label={isSubmitting ? 'Building checklist' : 'Build my checklist'}
-            className="ml-auto md:ml-0 shrink-0 w-10 h-10 rounded-full bg-brand hover:bg-brand-dark text-white flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-ring"
+            className={`shrink-0 w-12 h-12 rounded-2xl text-white flex items-center justify-center transition-all duration-200 focus-ring ${
+              canSubmit ? 'bg-brand hover:bg-brand-dark shadow-md motion-safe:hover:scale-105' : 'bg-brand/40 cursor-not-allowed'
+            }`}
           >
             {isSubmitting ? (
               <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin motion-reduce:animate-none" />
@@ -219,72 +249,83 @@ export const PlanNewPage: React.FC = () => {
               <ArrowUp className="w-5 h-5" />
             )}
           </button>
-        </div>
-      </form>
+        </form>
+        <p id="task-hint" className="sr-only">
+          Press Enter to send and Shift+Enter for a new line.
+        </p>
 
-      {isMountingTask && !isSubmitting && (
-        <div className="space-y-4" aria-label="A couple of quick questions">
-          <ChoiceQuestion
-            question="Quick question — what kind of wall is it?"
-            options={WALL_TYPES}
-            value={wallType}
-            onChange={setWallType}
-          />
-          <ChoiceQuestion question="And roughly how heavy is the load?" options={SHELF_LOADS} value={shelfLoad} onChange={setShelfLoad} />
-        </div>
-      )}
+        <div className="space-y-4 motion-safe:animate-fade-up" style={{ animationDelay: '160ms' }}>
+          <div className="flex justify-center">
+            <ChipGroup label="Need things for" options={DURATIONS} value={duration} onChange={setDuration} allowEmpty={false} />
+          </div>
 
-      {isSubmitting && (
-        <div role="status" className="flex items-center gap-2.5">
-          <span className="w-7 h-7 rounded-full bg-evergreen/10 flex items-center justify-center shrink-0" aria-hidden="true">
-            <FeatureIcon name="sparkle" size={14} />
-          </span>
-          <span className="text-sm text-ink-muted bg-surface border border-surface-border rounded-2xl rounded-tl-sm px-3.5 py-2 inline-flex items-center gap-2">
+          {isMountingTask && !isSubmitting && (
+            <div className="space-y-3 p-4 rounded-2xl bg-surface border border-surface-border motion-safe:animate-fade-up">
+              <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+                <FeatureIcon name="sparkle" size={14} />A quick check for wall work
+              </p>
+              <ChipGroup label="Wall" options={WALL_TYPES} value={wallType} onChange={setWallType} />
+              <ChipGroup label="Load" options={SHELF_LOADS} value={shelfLoad} onChange={setShelfLoad} />
+            </div>
+          )}
+
+          {!isSubmitting && !trimmed && (
+            <div data-tour="task-suggestions" className="flex flex-wrap justify-center gap-2" aria-label="Example tasks">
+              {SUGGESTIONS.map(({ icon: Icon, text }, i) => (
+                <button
+                  key={text}
+                  type="button"
+                  onClick={() => pickSuggestion(text)}
+                  style={{ animationDelay: `${220 + i * 80}ms` }}
+                  className="group inline-flex items-center gap-2 text-sm pl-2 pr-4 py-1.5 rounded-full border border-surface-border bg-surface text-ink-muted hover:text-ink hover:border-evergreen/40 hover:shadow-sm motion-safe:hover:-translate-y-0.5 transition-all duration-200 focus-ring motion-safe:animate-fade-up"
+                >
+                  <span className="w-7 h-7 rounded-full bg-evergreen/10 text-evergreen flex items-center justify-center group-hover:bg-evergreen/20 transition-colors">
+                    <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                  </span>
+                  {text}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {isSubmitting && (
+          <p role="status" className="flex items-center justify-center gap-2 text-sm text-ink-muted">
             Building your checklist
             <span className="inline-flex gap-1" aria-hidden="true">
               {[0, 150, 300].map((d) => (
-                <span key={d} className="w-1.5 h-1.5 rounded-full bg-ink-subtle animate-bounce motion-reduce:animate-none" style={{ animationDelay: `${d}ms` }} />
+                <span key={d} className="w-1.5 h-1.5 rounded-full bg-evergreen animate-bounce motion-reduce:animate-none" style={{ animationDelay: `${d}ms` }} />
               ))}
             </span>
-          </span>
-        </div>
-      )}
+          </p>
+        )}
 
-      {error && (
-        <div role="alert" className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
-          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {!isSubmitting && (
-        <section data-tour="task-suggestions" aria-labelledby="suggestions-heading" className="space-y-2.5">
-          <h2 id="suggestions-heading" className="text-xs font-semibold text-ink-muted uppercase tracking-wider">
-            Try asking
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {SUGGESTIONS.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => pickSuggestion(s)}
-                className="text-left text-sm px-3.5 py-2 rounded-2xl border border-surface-border bg-surface text-ink-muted hover:text-ink hover:border-evergreen/40 hover:bg-evergreen/5 transition-colors focus-ring"
-              >
-                {s}
-              </button>
-            ))}
+        {error && (
+          <div role="alert" className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>{error}</span>
           </div>
-        </section>
-      )}
+        )}
 
-      <ol className="grid grid-cols-3 gap-2 pt-2 text-center text-[11px] text-ink-muted">
-        {['Describe the task', 'Tick what you own', 'Borrow, rent or buy the rest'].map((s, i) => (
-          <li key={s} className="flex flex-col items-center gap-1">
-            <span className="w-5 h-5 rounded-full bg-surface-secondary border border-surface-border text-[10px] font-bold text-ink flex items-center justify-center">{i + 1}</span>
-            {s}
-          </li>
-        ))}
-      </ol>
+        <ol className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-6">
+          {STEPS.map(({ icon: Icon, title, text }, i) => (
+            <li
+              key={title}
+              style={{ animationDelay: `${320 + i * 90}ms` }}
+              className="flex sm:flex-col items-center sm:items-start gap-3 p-4 rounded-2xl bg-surface/70 border border-surface-border motion-safe:animate-fade-up"
+            >
+              <span className="relative w-9 h-9 rounded-xl bg-evergreen/10 text-evergreen flex items-center justify-center shrink-0">
+                <Icon className="w-4 h-4" aria-hidden="true" />
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-brand text-white text-[9px] font-bold flex items-center justify-center">{i + 1}</span>
+              </span>
+              <span>
+                <span className="block text-sm font-semibold text-ink">{title}</span>
+                <span className="block text-xs text-ink-muted">{text}</span>
+              </span>
+            </li>
+          ))}
+        </ol>
+      </div>
     </div>
   );
 };

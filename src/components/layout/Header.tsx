@@ -94,10 +94,11 @@ export const Header: React.FC = () => {
             {/* Project Walkthrough Tour button */}
             <button
               type="button"
-              onClick={() => setIsTourOpen(true)}
+              onClick={() => window.dispatchEvent(new CustomEvent('sidekit:start-tour'))}
+              data-tour="tour-button"
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-evergreen bg-evergreen/10 hover:bg-evergreen/20 transition-colors focus-ring"
-              title="Interactive Walkthrough of Sidekit"
-              aria-label="Start project walkthrough tour"
+              title="Guided tour of Sidekit"
+              aria-label="Start the guided tour"
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Tour</span>
@@ -115,6 +116,8 @@ export const Header: React.FC = () => {
 
             {/* Notification bell */}
             <button
+              type="button"
+              data-tour="notifications"
               onClick={() => setIsNotifOpen(true)}
               className="relative p-2 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-secondary transition-colors"
               aria-label={`${unread} unread notifications`}
@@ -130,6 +133,11 @@ export const Header: React.FC = () => {
             {/* Persona switcher */}
             <div className="relative" ref={personaRef}>
               <button
+                type="button"
+                data-tour="persona-menu"
+                aria-haspopup="menu"
+                aria-expanded={isPersonaOpen}
+                aria-label={`Switch demo persona (current: ${currentUser?.displayName || 'none'})`}
                 onClick={() => setIsPersonaOpen(!isPersonaOpen)}
                 className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-surface-border bg-surface hover:bg-surface-secondary transition-colors text-xs"
               >
@@ -238,12 +246,12 @@ export const Header: React.FC = () => {
               type="button"
               onClick={() => {
                 setIsMobileOpen(false);
-                setIsTourOpen(true);
+                window.dispatchEvent(new CustomEvent('sidekit:start-tour'));
               }}
               className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-evergreen bg-evergreen/10 hover:bg-evergreen/20 transition-colors"
             >
               <Sparkles className="w-4 h-4" />
-              <span>Project Walkthrough Tour</span>
+              <span>Guided tour</span>
             </button>
           </div>
         )}
