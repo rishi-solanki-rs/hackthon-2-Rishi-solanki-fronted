@@ -5,6 +5,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
 import { PwaInstallPrompt } from './components/pwa/PwaInstallPrompt';
+import { SpotlightTour } from './components/walkthrough/SpotlightTour';
 
 // 18 Canonical Routes
 import { LandingPage } from './routes/LandingPage';
@@ -120,6 +121,7 @@ export const App: React.FC = () => {
           </main>
           <Footer />
           <PwaInstallPrompt />
+          <SpotlightTour />
         </div>
       </AuthProvider>
       </ThemeProvider>
