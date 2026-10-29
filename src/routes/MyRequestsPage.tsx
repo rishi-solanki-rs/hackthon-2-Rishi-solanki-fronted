@@ -112,7 +112,7 @@ export const MyRequestsPage: React.FC = () => {
                 {/* Top */}
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex items-start gap-3 min-w-0">
-                    <ItemThumb title={r.listingTitle} size={40} />
+                    <ItemThumb title={r.listingTitle} category={r.listingCategory} size={44} />
                     <div className="min-w-0">
                       <Link to={`/listing/${r.listingId}`} className="text-sm font-bold text-ink hover:text-evergreen">{r.listingTitle}</Link>
                       <p className="text-xs text-ink-muted mt-0.5">

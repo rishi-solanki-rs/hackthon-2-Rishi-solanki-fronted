@@ -17,6 +17,13 @@ import {
   SocietyImpactStats,
   AdminQueueData,
   UserProfileSummary,
+  RequestStatus,
+  AdminListingAction,
+  AdminListingFilters,
+  AdminLeaderboard,
+  AdminOverview,
+  AdminSettings,
+  AdminUserRow,
 } from '@sidekit/shared';
 import { ISidekitService } from './ISidekitService';
 
@@ -327,10 +334,41 @@ export class HttpSidekitService implements ISidekitService {
     return this.request<AdminQueueData>('/admin/queue');
   }
 
-  async adminModerateListing(listingId: string, action: 'approve' | 'remove'): Promise<void> {
-    return this.request<void>(`/admin/listings/${listingId}/${action}`, {
+  async getAdminOverview(): Promise<AdminOverview> {
+    return this.request<AdminOverview>('/admin/overview');
+  }
+
+  async getAdminListings(filters: AdminListingFilters = {}): Promise<Listing[]> {
+    const params = new URLSearchParams();
+    if (filters.moderation) params.set('moderation', filters.moderation);
+    if (filters.category) params.set('category', filters.category);
+    if (filters.q) params.set('q', filters.q);
+    const qs = params.toString();
+    return this.request<Listing[]>(`/admin/listings${qs ? `?${qs}` : ''}`);
+  }
+
+  async getAdminUsers(): Promise<AdminUserRow[]> {
+    return this.request<AdminUserRow[]>('/admin/users');
+  }
+
+  async getAdminRequests(status: RequestStatus | 'all' = 'all'): Promise<Request[]> {
+    return this.request<Request[]>(`/admin/requests?status=${encodeURIComponent(status)}`);
+  }
+
+  async getAdminLeaderboard(): Promise<AdminLeaderboard> {
+    return this.request<AdminLeaderboard>('/admin/leaderboard');
+  }
+
+  async getAdminSettings(): Promise<AdminSettings> {
+    return this.request<AdminSettings>('/admin/settings');
+  }
+
+  async adminModerateListing(listingId: string, action: AdminListingAction, reason?: string): Promise<Listing> {
+    const res = await this.request<{ success: boolean; listing: Listing }>(`/admin/listings/${encodeURIComponent(listingId)}/${action}`, {
       method: 'POST',
+      body: JSON.stringify(reason ? { reason } : {}),
     });
+    return res.listing;
   }
 
   async resetToFactorySeed(): Promise<void> {

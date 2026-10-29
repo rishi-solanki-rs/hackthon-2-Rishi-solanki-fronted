@@ -16,6 +16,7 @@ export const Footer: React.FC = () => {
         <div className="flex items-center gap-4">
           <Link to="/help" className="hover:text-ink transition-colors">Guidelines</Link>
           <Link to="/impact" className="hover:text-ink transition-colors">Impact</Link>
+          <Link to="/credits" className="hover:text-ink transition-colors">Photo credits</Link>
           {currentUser?.role === 'admin' && (
             <Link to="/admin" className="hover:text-ink transition-colors">Admin</Link>
           )}

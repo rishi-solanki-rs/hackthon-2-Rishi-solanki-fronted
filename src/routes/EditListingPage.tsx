@@ -83,6 +83,19 @@ export const EditListingPage: React.FC = () => {
         <p className="text-xs text-ink-muted mt-0.5 font-mono">{listing.id}</p>
       </div>
 
+      {listing.moderationStatus === 'rejected' && (
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1">
+          <p className="font-semibold">The Estate Office did not approve this listing.</p>
+          <p>Reason: {listing.rejectionReason || 'No reason given.'}</p>
+          <p>Saving your changes sends it back for approval.</p>
+        </div>
+      )}
+      {listing.moderationStatus === 'pending_review' && (
+        <p className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900">
+          Awaiting approval — only you can see this listing for now.
+        </p>
+      )}
+
       {error && (
         <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />

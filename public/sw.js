@@ -1,5 +1,6 @@
-// Sidekit Progressive Web App (PWA) Service Worker
-const CACHE_NAME = 'sidekit-v1';
+// Sidekit service worker: caches the app shell and static assets for faster repeat visits.
+// API data is never cached — requests, contacts and availability must always be live.
+const CACHE_NAME = 'sidekit-v2';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
@@ -11,89 +12,57 @@ const PRECACHE_ASSETS = [
   '/site.webmanifest',
   '/brand/logo/logo-horizontal.svg',
   '/brand/logo/symbol.svg',
+  '/brand/illustrations/offline.svg',
 ];
 
-// Install: precache app shell
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(PRECACHE_ASSETS).catch((err) => {
-        console.warn('[SW] Precache non-blocking error:', err);
-      });
-    }).then(() => self.skipWaiting())
+    caches
+      .open(CACHE_NAME)
+      .then((cache) => cache.addAll(PRECACHE_ASSETS))
+      .catch((err) => console.warn('[SW] Precache failed:', err))
+      .then(() => self.skipWaiting())
   );
 });
 
-// Activate: purge older caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            console.log('[SW] Clearing old cache:', key);
-            return caches.delete(key);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
+      .then(() => self.clients.claim())
   );
 });
 
-// Fetch: Strategy
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  const url = new URL(request.url);
-
-  // Skip non-GET requests
   if (request.method !== 'GET') return;
 
-  // 1. API requests: Network first with offline fallback
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      fetch(request)
-        .then((response) => response)
-        .catch(() => {
-          return new Response(
-            JSON.stringify({
-              error: 'Offline',
-              message: 'You are currently offline. Local cached changes will sync when connected.',
-              offline: true,
-            }),
-            {
-              headers: { 'Content-Type': 'application/json' },
-              status: 503,
-            }
-          );
-        })
-    );
-    return;
-  }
+  const url = new URL(request.url);
+  // Cross-origin requests (the Render API, Wikimedia links) and API calls go straight to the network.
+  if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
 
-  // 2. Navigation (HTML pages): Network first, fallback to cached index.html
+  // Pages: network first so deploys show up immediately; cached shell when offline.
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).catch(() => {
-        return caches.match('/index.html').then((match) => match || caches.match('/'));
-      })
+      fetch(request).catch(() => caches.match('/index.html').then((match) => match || caches.match('/')).then((r) => r || Response.error()))
     );
     return;
   }
 
-  // 3. Static assets: Stale-while-revalidate
+  // Static assets: serve from cache, refresh in the background.
   event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      const fetchPromise = fetch(request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-            const responseToCache = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, responseToCache));
+    caches.match(request).then((cached) => {
+      const network = fetch(request)
+        .then((response) => {
+          if (response && response.status === 200 && response.type === 'basic') {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
           }
-          return networkResponse;
+          return response;
         })
-        .catch(() => cachedResponse);
-
-      return cachedResponse || fetchPromise;
+        .catch(() => cached || Response.error());
+      return cached || network;
     })
   );
 });

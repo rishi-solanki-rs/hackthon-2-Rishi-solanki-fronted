@@ -49,7 +49,7 @@ export const JoinPage: React.FC = () => {
         <div className="text-center space-y-3">
           <Illustration name="join-society" width={200} className="brand-art mx-auto" />
           <h1 className="text-2xl font-bold text-ink">Join Palm Grove</h1>
-          <p className="text-sm text-ink-muted">Sidekit is exclusive to verified society residents.</p>
+          <p className="text-sm text-ink-muted">Sidekit is for Palm Grove residents who have the society invite code.</p>
         </div>
 
         {error && (

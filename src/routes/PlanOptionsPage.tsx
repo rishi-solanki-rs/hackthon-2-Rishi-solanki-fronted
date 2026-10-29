@@ -11,6 +11,7 @@ import {
 } from '@sidekit/shared';
 import { sidekitService } from '../services';
 import { SampleBadge } from '../components/shared/SampleBadge';
+import { METHOD_STYLES } from '../components/shared/modeStyles';
 import { SafetyGateNotice } from '../components/shared/SafetyGateNotice';
 import { ItemThumb } from '../components/brand/itemIcons';
 import { BrandLoader, EmptyState } from '../components/brand/BrandStates';
@@ -18,11 +19,11 @@ import { Illustration } from '../components/brand/sidekit-art';
 import { FeatureIcon, FeatureIconName } from '../components/brand/sidekit-icons';
 
 const MODE_META: Record<string, { label: string; icon: FeatureIconName; cls: string }> = {
-  lend: { label: 'Free Borrow', icon: 'borrow', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  rent: { label: 'Rent', icon: 'rent', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
-  sell_used: { label: 'Buy Used', icon: 'buy-used', cls: 'bg-purple-50 text-purple-700 border-purple-200' },
-  buy_new: { label: 'Buy New', icon: 'buy-new', cls: 'bg-slate-50 text-slate-600 border-slate-200' },
-  repair: { label: 'Repair', icon: 'repair', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+  lend: { label: METHOD_STYLES.borrow.label, icon: 'borrow', cls: METHOD_STYLES.borrow.soft },
+  rent: { label: METHOD_STYLES.rent.label, icon: 'rent', cls: METHOD_STYLES.rent.soft },
+  sell_used: { label: METHOD_STYLES.buy_used.label, icon: 'buy-used', cls: METHOD_STYLES.buy_used.soft },
+  buy_new: { label: METHOD_STYLES.buy_new.label, icon: 'buy-new', cls: METHOD_STYLES.buy_new.soft },
+  repair: { label: METHOD_STYLES.repair.label, icon: 'repair', cls: METHOD_STYLES.repair.soft },
 };
 
 type MethodFilter = 'all' | 'lend' | 'rent' | 'sell_used' | 'buy_new' | 'repair';
@@ -428,8 +429,28 @@ export const PlanOptionsPage: React.FC = () => {
               })}
             </div>
           )}
+
+          {methodFilter === 'all' && section.repairOptions && section.repairOptions.length > 0 && (
+            <details className="rounded-xl border border-surface-border bg-surface">
+              <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-ink flex items-center gap-2">
+                <FeatureIcon name="repair" size={16} /> Already own a broken one? {section.repairOptions.length} repair shop{section.repairOptions.length !== 1 ? 's' : ''}
+              </summary>
+              <ul className="px-3 pb-3 space-y-1.5">
+                {section.repairOptions.map((r) => (
+                  <li key={r.id} className="flex items-center justify-between gap-3 text-xs">
+                    <span className="text-ink-muted">
+                      <strong className="text-ink">{r.ownerDisplayName}</strong> · {r.ownerTower} ·{' '}
+                      {typeof r.unitPrice === 'number' ? `from ₹${r.unitPrice.toLocaleString('en-IN')}` : 'price after inspection'}
+                    </span>
+                    {r.isSample && <SampleBadge />}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
         </section>
-      ))}
+        );
+      })}
 
       {/* Booking modal */}
       {selectedOption && (

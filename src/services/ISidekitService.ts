@@ -17,6 +17,13 @@ import {
   SocietyImpactStats,
   AdminQueueData,
   UserProfileSummary,
+  RequestStatus,
+  AdminListingAction,
+  AdminListingFilters,
+  AdminLeaderboard,
+  AdminOverview,
+  AdminSettings,
+  AdminUserRow,
 } from '@sidekit/shared';
 
 export interface ISidekitService {
@@ -70,7 +77,13 @@ export interface ISidekitService {
   markNotificationRead(notificationId: string): Promise<void>;
   getSocietyImpact(): Promise<SocietyImpactStats>;
   getAdminQueue(): Promise<AdminQueueData>;
-  adminModerateListing(listingId: string, action: 'approve' | 'remove'): Promise<void>;
+  getAdminOverview(): Promise<AdminOverview>;
+  getAdminListings(filters?: AdminListingFilters): Promise<Listing[]>;
+  getAdminUsers(): Promise<AdminUserRow[]>;
+  getAdminRequests(status?: RequestStatus | 'all'): Promise<Request[]>;
+  getAdminLeaderboard(): Promise<AdminLeaderboard>;
+  getAdminSettings(): Promise<AdminSettings>;
+  adminModerateListing(listingId: string, action: AdminListingAction, reason?: string): Promise<Listing>;
   resetToFactorySeed(): Promise<void>;
 }
 

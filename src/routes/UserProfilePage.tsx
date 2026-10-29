@@ -53,7 +53,7 @@ export const UserProfilePage: React.FC = () => {
         </div>
         <div>
           <h1 className="text-xl font-bold text-ink">{user.displayName}</h1>
-          <p className="text-xs text-ink-muted">{user.tower} · Verified Resident</p>
+          <p className="text-xs text-ink-muted">{user.tower} · Palm Grove resident</p>
           {user.reviewCount > 0 && (
             <div className="flex items-center gap-1 text-xs text-amber-600 font-semibold mt-1">
               <Star className="w-3 h-3 fill-current" aria-hidden="true" />
@@ -117,7 +117,7 @@ export const UserProfilePage: React.FC = () => {
             {listings.map((l) => (
               <Link key={l.id} to={`/listing/${l.id}`}
                 className="flex items-center gap-3 p-3 bg-surface rounded-xl border border-surface-border hover:border-evergreen/30 transition-colors">
-                <ItemThumb itemKey={l.itemKey} title={l.title} size={48} />
+                <ItemThumb itemKey={l.itemKey} title={l.title} category={l.category} size={48} />
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-semibold text-ink truncate">{l.title}</p>
                   <p className="text-[11px] text-ink-muted mt-0.5 flex items-center gap-1.5">

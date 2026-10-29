@@ -14,6 +14,9 @@ const NOTIFICATION_ICONS: Record<NotificationType, FeatureIconName> = {
   return_due: 'pending',
   listing_reported: 'safety',
   listing_hidden: 'safety',
+  listing_review: 'pending',
+  listing_approved: 'owned',
+  listing_rejected: 'declined',
   thank_you: 'returned',
 };
 

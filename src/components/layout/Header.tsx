@@ -148,8 +148,8 @@ export const Header: React.FC = () => {
                     <p className="text-[11px] font-bold text-ink uppercase tracking-wider">Switch Persona</p>
                     <p className="text-[10px] text-ink-muted mt-0.5">Demo simulation only — not real auth</p>
                   </div>
-                  <div className="p-1">
-                    {allUsers.slice(0, 6).map((user) => {
+                  <div className="p-1 max-h-[60vh] overflow-y-auto">
+                    {[...allUsers].sort((a, b) => Number(b.role === 'admin') - Number(a.role === 'admin')).map((user) => {
                       const active = user.id === currentUser?.id;
                       return (
                         <button

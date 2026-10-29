@@ -17,7 +17,7 @@ export const SocietyImpactPage: React.FC = () => {
     ]).then(([s, users]) => {
       setStats(s);
       // Sort by itemsSharedCount descending for leaderboard
-      setTopSharers([...users].sort((a, b) => (b.itemsSharedCount || 0) - (a.itemsSharedCount || 0)).slice(0, 5));
+      setTopSharers(users.filter((u) => u.role !== 'admin').sort((a, b) => (b.itemsSharedCount || 0) - (a.itemsSharedCount || 0)).slice(0, 5));
       setIsLoading(false);
     }).catch(() => setIsLoading(false));
   }, []);

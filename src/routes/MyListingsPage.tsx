@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Plus, Edit, Pause, Play, X } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { Plus, Edit, Pause, Play, X, CheckCircle } from 'lucide-react';
 import { Listing } from '@sidekit/shared';
 import { sidekitService } from '../services';
 import { SampleBadge } from '../components/shared/SampleBadge';
@@ -17,6 +17,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 export const MyListingsPage: React.FC = () => {
   const { currentUser } = useAuth();
+  const notice = (useLocation().state as { notice?: string } | null)?.notice;
   const [listings, setListings] = useState<Listing[]>([]);
   const [tab, setTab] = useState<'all' | 'active' | 'paused' | 'closed'>('all');
   const [isLoading, setIsLoading] = useState(true);
@@ -24,8 +25,7 @@ export const MyListingsPage: React.FC = () => {
   const fetchMyListings = async () => {
     setIsLoading(true);
     try {
-      if (!currentUser) return;
-      setListings(await sidekitService.searchListings({ ownerId: currentUser.id }));
+      if (currentUser) setListings(await sidekitService.searchListings({ ownerId: currentUser.id }));
     } catch {}
     setIsLoading(false);
   };
@@ -78,6 +78,13 @@ export const MyListingsPage: React.FC = () => {
         ))}
       </div>
 
+      {notice && (
+        <p role="status" className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800">
+          <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" />
+          {notice}
+        </p>
+      )}
+
       {actionError && (
         <p role="alert" className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">{actionError}</p>
       )}
@@ -116,6 +123,16 @@ export const MyListingsPage: React.FC = () => {
                       Hidden · under review
                     </span>
                   )}
+                  {l.moderationStatus === 'pending_review' && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                      Awaiting approval
+                    </span>
+                  )}
+                  {l.moderationStatus === 'rejected' && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                      Not approved
+                    </span>
+                  )}
                   {l.reportsCount > 0 && (
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
                       {l.reportsCount} report{l.reportsCount > 1 ? 's' : ''}
@@ -125,6 +142,14 @@ export const MyListingsPage: React.FC = () => {
                 <p className="text-xs text-ink-muted mt-0.5">
                   Qty: {l.totalQuantity} · {listingPriceLabel(l)}
                 </p>
+                {l.moderationStatus === 'pending_review' && (
+                  <p className="text-xs text-amber-800 mt-1">Only you can see this until the Estate Office approves it.</p>
+                )}
+                {l.moderationStatus === 'rejected' && (
+                  <p className="text-xs text-ink-muted mt-1">
+                    <span className="font-semibold text-ink">Reason:</span> {l.rejectionReason || 'No reason given.'} Edit the listing to resubmit it.
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center gap-2 shrink-0">

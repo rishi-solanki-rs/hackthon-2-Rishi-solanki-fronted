@@ -39,6 +39,23 @@ import {
   suggestMoreItems,
   DemandEntry,
   UserProfileSummary,
+  RequestStatus,
+  isPubliclyVisible,
+  initialModerationStatus,
+  applyModerationAction,
+  buildAdminOverview,
+  buildAdminUsers,
+  buildAdminLeaderboard,
+  filterAdminListings,
+  filterAdminRequests,
+  AUTO_HIDE_REPORT_THRESHOLD,
+  PENDING_EXPIRY_HOURS,
+  AdminListingAction,
+  AdminListingFilters,
+  AdminLeaderboard,
+  AdminOverview,
+  AdminSettings,
+  AdminUserRow,
 } from '@sidekit/shared';
 import { ISidekitService } from './ISidekitService';
 
@@ -52,7 +69,11 @@ const STORAGE_KEYS = {
   NOTIFICATIONS: 'sidekit_notifications',
   DEMAND: 'sidekit_demand',
   CLOCK_OFFSET_HOURS: 'sidekit_clock_offset_hours',
+  SEED_VERSION: 'sidekit_seed_version',
 };
+
+// Bump when the seed fixtures change so browsers holding older demo data reseed.
+const SEED_VERSION = '2026-10-29.catalog-v2';
 
 export class MockSidekitService implements ISidekitService {
   private memoryStore: Record<string, string> = {};
@@ -76,6 +97,10 @@ export class MockSidekitService implements ISidekitService {
   }
 
   private initIfEmpty(force = false): void {
+    if (this.getItem(STORAGE_KEYS.SEED_VERSION) !== SEED_VERSION) {
+      force = true;
+      this.setItem(STORAGE_KEYS.SEED_VERSION, SEED_VERSION);
+    }
     if (force || !this.getItem(STORAGE_KEYS.USERS)) {
       this.setItem(STORAGE_KEYS.USERS, JSON.stringify(SEED_USERS));
     }
@@ -358,13 +383,11 @@ export class MockSidekitService implements ISidekitService {
 
     const currentId = this.getItem(STORAGE_KEYS.CURRENT_USER_ID) || 'usr_rishi';
     if (filters?.ownerId) {
-      // Owners see all of their own listings (including closed and hidden) in My Listings
+      // Owners see all of their own listings (pending, rejected, closed, hidden) in My Listings
       const ownerId = filters.ownerId;
-      listings = listings.filter(
-        (l) => l.ownerId === ownerId && (ownerId === currentId || (l.status !== 'closed' && l.moderationStatus !== 'hidden_by_admin'))
-      );
+      listings = listings.filter((l) => l.ownerId === ownerId && (ownerId === currentId || isPubliclyVisible(l)));
     } else {
-      listings = listings.filter((l) => l.moderationStatus !== 'hidden_by_admin' && l.status !== 'closed');
+      listings = listings.filter(isPubliclyVisible);
     }
 
     if (!filters) return listings;
@@ -397,7 +420,24 @@ export class MockSidekitService implements ISidekitService {
 
   async getListing(id: string): Promise<Listing | undefined> {
     const listings: Listing[] = JSON.parse(this.getItem(STORAGE_KEYS.LISTINGS) || '[]');
-    return listings.find((l) => l.id === id);
+    const listing = listings.find((l) => l.id === id);
+    if (!listing) return undefined;
+    if (['hidden_by_admin', 'pending_review', 'rejected'].includes(listing.moderationStatus)) {
+      const user = await this.getCurrentUser();
+      if (listing.ownerId !== user.id && user.role !== 'admin') return undefined;
+    }
+    return listing;
+  }
+
+  private pushNotification(n: Omit<AppNotification, 'id' | 'read' | 'createdAt'>): void {
+    const all: AppNotification[] = JSON.parse(this.getItem(STORAGE_KEYS.NOTIFICATIONS) || '[]');
+    all.unshift({
+      ...n,
+      id: `notif_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      read: false,
+      createdAt: this.getSimulatedTime().toISOString(),
+    });
+    this.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(all));
   }
 
   async createListing(data: CreateListingInput): Promise<Listing> {
@@ -421,7 +461,7 @@ export class MockSidekitService implements ISidekitService {
       condition: data.condition,
       totalQuantity: Math.max(1, data.totalQuantity || 1),
       status: 'active',
-      moderationStatus: 'approved',
+      moderationStatus: initialModerationStatus(user.role),
       reportsCount: 0,
       pickupNote: data.pickupNote,
       comfortRules: data.comfortRules,
@@ -435,6 +475,20 @@ export class MockSidekitService implements ISidekitService {
 
     listings.unshift(newListing);
     this.setItem(STORAGE_KEYS.LISTINGS, JSON.stringify(listings));
+    if (newListing.moderationStatus === 'pending_review') {
+      const users: User[] = JSON.parse(this.getItem(STORAGE_KEYS.USERS) || '[]');
+      users
+        .filter((u) => u.role === 'admin')
+        .forEach((admin) =>
+          this.pushNotification({
+            userId: admin.id,
+            type: 'listing_review',
+            title: 'Listing awaiting approval',
+            message: `${user.displayName} listed "${newListing.title}". Review it before it goes public.`,
+            link: '/admin/approvals',
+          })
+        );
+    }
     return newListing;
   }
 
@@ -443,9 +497,11 @@ export class MockSidekitService implements ISidekitService {
     const index = listings.findIndex((l) => l.id === id);
     if (index === -1) throw new Error(`Listing ${id} not found`);
 
+    const resubmit = listings[index].moderationStatus === 'rejected' && !('status' in data && Object.keys(data).length === 1);
     listings[index] = {
       ...listings[index],
       ...data,
+      ...(resubmit ? { moderationStatus: 'pending_review' as const, rejectionReason: undefined } : {}),
       updatedAt: this.getSimulatedTime().toISOString(),
     };
 
@@ -463,7 +519,9 @@ export class MockSidekitService implements ISidekitService {
     if (index === -1) throw new Error(`Listing ${id} not found`);
 
     const user = await this.getCurrentUser();
+    if (!isPubliclyVisible(listings[index])) throw new Error('This listing is not public and cannot be reported.');
     if (listings[index].ownerId === user.id) throw new Error('You cannot report your own listing.');
+    if (reason?.trim()) listings[index].reportReasons = [...(listings[index].reportReasons || []), reason.trim().slice(0, 200)];
     const reporters = new Set(listings[index].reportedBy || []);
     if (reporters.has(user.id)) throw new Error('You have already reported this listing.');
     reporters.add(user.id);
@@ -472,7 +530,7 @@ export class MockSidekitService implements ISidekitService {
     let hidden = false;
 
     // FIX-ADMIN-01: 3-report threshold transitions listing to under_review / hidden_by_admin
-    if (listings[index].reportsCount >= 3) {
+    if (listings[index].reportsCount >= AUTO_HIDE_REPORT_THRESHOLD) {
       listings[index].moderationStatus = 'hidden_by_admin';
       hidden = true;
     } else {
@@ -812,34 +870,73 @@ export class MockSidekitService implements ISidekitService {
     return computeSocietyImpact(requests, demand);
   }
 
-  async getAdminQueue(): Promise<AdminQueueData> {
-    const listings: Listing[] = JSON.parse(this.getItem(STORAGE_KEYS.LISTINGS) || '[]');
-    const reported = listings.filter((l) => l.moderationStatus === 'reported');
-    const hidden = listings.filter((l) => l.moderationStatus === 'hidden_by_admin');
-    const totalReports = listings.reduce((sum, l) => sum + (l.reportsCount || 0), 0);
-
+  private async adminData(): Promise<{ users: User[]; listings: Listing[]; requests: Request[] }> {
+    const user = await this.getCurrentUser();
+    if (user.role !== 'admin') throw new Error('Admin access required.');
     return {
-      reportedListings: reported,
-      hiddenListings: hidden,
-      totalReportsCount: totalReports,
+      users: JSON.parse(this.getItem(STORAGE_KEYS.USERS) || '[]'),
+      listings: JSON.parse(this.getItem(STORAGE_KEYS.LISTINGS) || '[]'),
+      requests: await this.getAllRequests(),
     };
   }
 
-  async adminModerateListing(listingId: string, action: 'approve' | 'remove'): Promise<void> {
-    const listings: Listing[] = JSON.parse(this.getItem(STORAGE_KEYS.LISTINGS) || '[]');
-    const target = listings.find((l) => l.id === listingId);
-    if (!target) throw new Error('Listing not found');
+  async getAdminQueue(): Promise<AdminQueueData> {
+    const { listings } = await this.adminData();
+    return {
+      pendingListings: listings.filter((l) => l.moderationStatus === 'pending_review'),
+      reportedListings: listings.filter((l) => l.moderationStatus === 'reported'),
+      hiddenListings: listings.filter((l) => l.moderationStatus === 'hidden_by_admin'),
+      totalReportsCount: listings.reduce((sum, l) => sum + (l.reportsCount || 0), 0),
+    };
+  }
 
-    if (action === 'approve') {
-      target.moderationStatus = 'approved';
-      target.reportsCount = 0;
-      target.status = 'active';
-    } else {
-      target.moderationStatus = 'hidden_by_admin';
-      target.status = 'closed';
-    }
+  async getAdminOverview(): Promise<AdminOverview> {
+    const { users, listings, requests } = await this.adminData();
+    return buildAdminOverview(users, listings, requests);
+  }
 
+  async getAdminListings(filters?: AdminListingFilters): Promise<Listing[]> {
+    const { listings } = await this.adminData();
+    return filterAdminListings(listings, filters);
+  }
+
+  async getAdminUsers(): Promise<AdminUserRow[]> {
+    const { users, listings, requests } = await this.adminData();
+    return buildAdminUsers(users, listings, requests);
+  }
+
+  async getAdminRequests(status?: RequestStatus | 'all'): Promise<Request[]> {
+    const { requests } = await this.adminData();
+    return filterAdminRequests(requests, status);
+  }
+
+  async getAdminLeaderboard(): Promise<AdminLeaderboard> {
+    const { users, listings, requests } = await this.adminData();
+    return buildAdminLeaderboard(users, listings, requests);
+  }
+
+  async getAdminSettings(): Promise<AdminSettings> {
+    await this.adminData();
+    return {
+      autoHideReportThreshold: AUTO_HIDE_REPORT_THRESHOLD,
+      pendingExpiryHours: PENDING_EXPIRY_HOURS,
+      newListingsRequireApproval: true,
+      aiEnabled: false,
+      aiModel: 'Template fallback (mock mode)',
+      inviteCode: 'PALM2026',
+    };
+  }
+
+  async adminModerateListing(listingId: string, action: AdminListingAction, reason?: string): Promise<Listing> {
+    const { listings } = await this.adminData();
+    const index = listings.findIndex((l) => l.id === listingId);
+    if (index === -1) throw new Error('Listing not found');
+    const result = applyModerationAction(listings[index], action, reason, this.getSimulatedTime());
+    if (!result.ok) throw new Error(result.error);
+    listings[index] = result.listing;
     this.setItem(STORAGE_KEYS.LISTINGS, JSON.stringify(listings));
+    this.pushNotification(result.notification);
+    return result.listing;
   }
 
   async resetToFactorySeed(): Promise<void> {

@@ -47,7 +47,7 @@ const FAQS = [
   },
   {
     q: 'Can I lend to someone outside my society?',
-    a: 'No. Sidekit is for verified residents of Palm Grove Estate only. All borrowers are registered society members.',
+    a: 'No. Sidekit is for Palm Grove Estate residents who join with the society invite code. This demo does not verify identity.',
   },
   {
     q: 'What is the 72-hour pending expiry?',

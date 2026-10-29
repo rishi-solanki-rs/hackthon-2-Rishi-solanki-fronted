@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
-import { ListingCategory, ListingMode, ListingCondition, evaluateItemSafety } from '@sidekit/shared';
+import { ListingCategory, ListingMode, ListingCondition, evaluateItemSafety, matchCatalogItem, LISTING_CATEGORIES, CATEGORY_LABELS } from '@sidekit/shared';
+import { useAuth } from '../context/AuthContext';
 import { sidekitService } from '../services';
 import { ItemThumb } from '../components/brand/itemIcons';
 
@@ -15,6 +16,8 @@ const CATALOG_TEMPLATES = [
 
 export const CreateListingPage: React.FC = () => {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  const needsApproval = currentUser?.role !== 'admin';
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<ListingCategory>('diy');
@@ -41,7 +44,12 @@ export const CreateListingPage: React.FC = () => {
   };
 
   // Catalog keys make the listing match plan checklists; custom titles get a key derived from the title
-  const itemKey = templateKey ?? title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  const matched = templateKey ? undefined : matchCatalogItem(title.trim());
+  const itemKey = templateKey ?? matched?.itemKey ?? title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+
+  useEffect(() => {
+    if (matched) setCategory(matched.category);
+  }, [matched?.itemKey]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,7 +67,7 @@ export const CreateListingPage: React.FC = () => {
         pickupNote: pickupNote.trim() || undefined,
         comfortRules: { returnClean: true, noCommercialUse: true },
       });
-      navigate('/my/listings');
+      navigate('/my/listings', { state: { notice: needsApproval ? 'Listing submitted. Neighbours will see it once the Estate Office approves it.' : 'Listing published.' } });
     } catch (err: any) { setError(err.message || 'Failed to create listing.'); }
     setIsSubmitting(false);
   };
@@ -123,20 +131,17 @@ export const CreateListingPage: React.FC = () => {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-ink mb-1">Category *</label>
-            <select value={category} onChange={(e) => setCategory(e.target.value as ListingCategory)}
+            <label htmlFor="listing-category" className="block text-xs font-semibold text-ink mb-1">Category *</label>
+            <select id="listing-category" value={category} onChange={(e) => setCategory(e.target.value as ListingCategory)}
               className="w-full px-3 py-2 text-sm bg-surface-secondary border border-surface-border rounded-xl focus-ring">
-              <option value="diy">DIY & Tools</option>
-              <option value="cleaning">Cleaning</option>
-              <option value="gardening">Gardening</option>
-              <option value="electronics">Electronics</option>
-              <option value="kitchen">Kitchen</option>
-              <option value="general">General</option>
+              {LISTING_CATEGORIES.map((c) => (
+                <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
+              ))}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-ink mb-1">Mode *</label>
-            <select value={mode} onChange={(e) => setMode(e.target.value as ListingMode)}
+            <label htmlFor="listing-mode" className="block text-xs font-semibold text-ink mb-1">Mode *</label>
+            <select id="listing-mode" value={mode} onChange={(e) => setMode(e.target.value as ListingMode)}
               className="w-full px-3 py-2 text-sm bg-surface-secondary border border-surface-border rounded-xl focus-ring">
               <option value="lend">Free Borrow</option>
               <option value="rent">Daily Rental</option>
@@ -148,18 +153,18 @@ export const CreateListingPage: React.FC = () => {
         <div className="grid grid-cols-2 gap-4">
           {mode !== 'lend' && (
             <div>
-              <label className="block text-xs font-semibold text-ink mb-1">
-                {mode === 'rent' ? 'Daily Rate (₹) *' : 'Price (₹) *'}
+              <label htmlFor="listing-price" className="block text-xs font-semibold text-ink mb-1">
+                {mode === 'rent' ? 'Daily rate (₹)' : 'Price (₹)'} <span className="font-normal text-ink-muted">— leave empty if unsure</span>
               </label>
-              <input type="number" min="0" value={price}
+              <input id="listing-price" type="number" min="0" value={price}
                 onChange={(e) => setPrice(e.target.value === '' ? '' : parseInt(e.target.value))}
                 className="w-full px-3 py-2 text-sm bg-surface-secondary border border-surface-border rounded-xl focus-ring font-mono"
                 placeholder="e.g. 200" />
             </div>
           )}
           <div>
-            <label className="block text-xs font-semibold text-ink mb-1">Condition *</label>
-            <select value={condition} onChange={(e) => setCondition(e.target.value as ListingCondition)}
+            <label htmlFor="listing-condition" className="block text-xs font-semibold text-ink mb-1">Condition *</label>
+            <select id="listing-condition" value={condition} onChange={(e) => setCondition(e.target.value as ListingCondition)}
               className="w-full px-3 py-2 text-sm bg-surface-secondary border border-surface-border rounded-xl focus-ring">
               <option value="like_new">Like New</option>
               <option value="good">Good</option>
@@ -167,26 +172,31 @@ export const CreateListingPage: React.FC = () => {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-ink mb-1">Quantity *</label>
-            <input type="number" min="1" value={totalQuantity}
+            <label htmlFor="listing-qty" className="block text-xs font-semibold text-ink mb-1">Quantity *</label>
+            <input id="listing-qty" type="number" min="1" value={totalQuantity}
               onChange={(e) => setTotalQuantity(Math.max(1, parseInt(e.target.value) || 1))}
               className="w-full px-3 py-2 text-sm bg-surface-secondary border border-surface-border rounded-xl focus-ring font-mono" />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-ink mb-1">Description *</label>
-          <textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)}
+          <label htmlFor="listing-description" className="block text-xs font-semibold text-ink mb-1">Description *</label>
+          <textarea id="listing-description" rows={3} value={description} onChange={(e) => setDescription(e.target.value)}
             placeholder="Specs, included accessories, usage notes..."
             className="w-full p-3 text-sm bg-surface-secondary border border-surface-border rounded-xl focus-ring resize-none" required />
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-ink mb-1">Pickup Instructions</label>
-          <input type="text" value={pickupNote} onChange={(e) => setPickupNote(e.target.value)}
-            placeholder="e.g. Collect from A-402 weekday evenings after 6 PM"
+          <label htmlFor="listing-pickup" className="block text-xs font-semibold text-ink mb-1">Pickup Instructions</label>
+          <input id="listing-pickup" type="text" value={pickupNote} onChange={(e) => setPickupNote(e.target.value)}
+            placeholder="e.g. Tower A lobby, weekday evenings after 6 PM"
             className="w-full px-3 py-2 text-sm bg-surface-secondary border border-surface-border rounded-xl focus-ring" />
         </div>
+
+        <p className="text-xs text-ink-muted">
+          Don't add your phone or flat number — they are shared only with a neighbour whose request you accept.
+          {needsApproval && ' New listings are checked by the Estate Office before neighbours can see them.'}
+        </p>
 
         <div className="flex justify-end gap-3 pt-2 border-t border-surface-border">
           <Link to="/my/listings" className="px-4 py-2 text-xs text-ink-muted hover:bg-surface-secondary rounded-lg">
@@ -194,7 +204,7 @@ export const CreateListingPage: React.FC = () => {
           </Link>
           <button type="submit" disabled={isSubmitting || !!safety?.isBlocked}
             className="px-6 py-2.5 bg-brand hover:bg-brand-dark text-white rounded-xl font-semibold text-sm transition-colors disabled:opacity-50">
-            {isSubmitting ? 'Publishing...' : 'Publish Listing'}
+            {isSubmitting ? 'Submitting…' : needsApproval ? 'Submit for approval' : 'Publish listing'}
           </button>
         </div>
       </form>

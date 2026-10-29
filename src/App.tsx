@@ -23,7 +23,16 @@ import { OwnerInboxPage } from './routes/OwnerInboxPage';
 import { MyProfilePage } from './routes/MyProfilePage';
 import { UserProfilePage } from './routes/UserProfilePage';
 import { SocietyImpactPage } from './routes/SocietyImpactPage';
-import { AdminPanelPage } from './routes/AdminPanelPage';
+import { AdminLayout } from './routes/admin/AdminLayout';
+import { AdminOverviewPage } from './routes/admin/AdminOverviewPage';
+import { AdminApprovalsPage } from './routes/admin/AdminApprovalsPage';
+import { AdminReportsPage } from './routes/admin/AdminReportsPage';
+import { AdminListingsPage } from './routes/admin/AdminListingsPage';
+import { AdminUsersPage } from './routes/admin/AdminUsersPage';
+import { AdminRequestsPage } from './routes/admin/AdminRequestsPage';
+import { AdminLeaderboardPage } from './routes/admin/AdminLeaderboardPage';
+import { AdminSettingsPage } from './routes/admin/AdminSettingsPage';
+import { CreditsPage } from './routes/CreditsPage';
 import { HelpSafetyPage } from './routes/HelpSafetyPage';
 import { NotFoundPage } from './routes/NotFoundPage';
 
@@ -86,12 +95,24 @@ export const App: React.FC = () => {
               {/* 16. Society Collective Impact Dashboard */}
               <Route path="/impact" element={<SocietyImpactPage />} />
 
-              {/* 17. Admin Control Panel & Reset */}
-              <Route path="/admin" element={<AdminPanelPage />} />
+              {/* 17. Estate Office admin console */}
+              <Route path="/admin" element={<AdminLayout />}>
+                <Route index element={<AdminOverviewPage />} />
+                <Route path="approvals" element={<AdminApprovalsPage />} />
+                <Route path="reports" element={<AdminReportsPage />} />
+                <Route path="listings" element={<AdminListingsPage />} />
+                <Route path="users" element={<AdminUsersPage />} />
+                <Route path="requests" element={<AdminRequestsPage />} />
+                <Route path="leaderboard" element={<AdminLeaderboardPage />} />
+                <Route path="settings" element={<AdminSettingsPage />} />
+              </Route>
 
               {/* 18. Guidelines, Safety & Damage Protocol */}
               <Route path="/help" element={<HelpSafetyPage />} />
               <Route path="/safety" element={<HelpSafetyPage />} />
+
+              {/* Image attribution for the open-licence product photos */}
+              <Route path="/credits" element={<CreditsPage />} />
 
               {/* Fallback */}
               <Route path="*" element={<NotFoundPage />} />
