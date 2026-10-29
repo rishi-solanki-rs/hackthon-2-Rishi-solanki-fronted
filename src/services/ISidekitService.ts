@@ -24,6 +24,7 @@ import {
   AdminOverview,
   AdminSettings,
   AdminUserRow,
+  AdminWantedItem,
 } from '@sidekit/shared';
 
 export interface ISidekitService {
@@ -83,6 +84,7 @@ export interface ISidekitService {
   getAdminRequests(status?: RequestStatus | 'all'): Promise<Request[]>;
   getAdminLeaderboard(): Promise<AdminLeaderboard>;
   getAdminSettings(): Promise<AdminSettings>;
+  getAdminWanted(): Promise<AdminWantedItem[]>;
   adminModerateListing(listingId: string, action: AdminListingAction, reason?: string): Promise<Listing>;
   resetToFactorySeed(): Promise<void>;
 }

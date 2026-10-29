@@ -56,6 +56,9 @@ import {
   AdminOverview,
   AdminSettings,
   AdminUserRow,
+  AdminWantedItem,
+  buildAdminWanted,
+  SEED_DEMAND,
 } from '@sidekit/shared';
 import { ISidekitService } from './ISidekitService';
 
@@ -73,7 +76,7 @@ const STORAGE_KEYS = {
 };
 
 // Bump when the seed fixtures change so browsers holding older demo data reseed.
-const SEED_VERSION = '2026-10-29.catalog-v2';
+const SEED_VERSION = '2026-10-29.catalog-v3';
 
 export class MockSidekitService implements ISidekitService {
   private memoryStore: Record<string, string> = {};
@@ -135,7 +138,7 @@ export class MockSidekitService implements ISidekitService {
       this.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(initialNotifications));
     }
     if (force || !this.getItem(STORAGE_KEYS.DEMAND)) {
-      this.setItem(STORAGE_KEYS.DEMAND, '[]');
+      this.setItem(STORAGE_KEYS.DEMAND, JSON.stringify(SEED_DEMAND));
     }
     if (force || !this.getItem(STORAGE_KEYS.CLOCK_OFFSET_HOURS)) {
       this.setItem(STORAGE_KEYS.CLOCK_OFFSET_HOURS, '0');
@@ -892,7 +895,7 @@ export class MockSidekitService implements ISidekitService {
 
   async getAdminOverview(): Promise<AdminOverview> {
     const { users, listings, requests } = await this.adminData();
-    return buildAdminOverview(users, listings, requests);
+    return buildAdminOverview(users, listings, requests, JSON.parse(this.getItem(STORAGE_KEYS.DEMAND) || '[]'));
   }
 
   async getAdminListings(filters?: AdminListingFilters): Promise<Listing[]> {
@@ -913,6 +916,11 @@ export class MockSidekitService implements ISidekitService {
   async getAdminLeaderboard(): Promise<AdminLeaderboard> {
     const { users, listings, requests } = await this.adminData();
     return buildAdminLeaderboard(users, listings, requests);
+  }
+
+  async getAdminWanted(): Promise<AdminWantedItem[]> {
+    const { users, listings } = await this.adminData();
+    return buildAdminWanted(JSON.parse(this.getItem(STORAGE_KEYS.DEMAND) || '[]'), users, listings);
   }
 
   async getAdminSettings(): Promise<AdminSettings> {

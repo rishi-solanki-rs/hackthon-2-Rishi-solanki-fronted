@@ -300,10 +300,10 @@ export const PlanOptionsPage: React.FC = () => {
 
           {section.rankedOptions.length === 0 && methodFilter !== 'repair' ? (
             <div className="p-4 bg-surface-secondary rounded-xl border border-surface-border flex flex-col sm:flex-row sm:items-center gap-3 text-sm text-ink-muted">
-              <span className="flex-1">No neighbour or shop lists this yet. Get notified when someone does.</span>
+              <span className="flex-1">No neighbour or shop lists this yet. Request it and the Estate Office will see that residents need it.</span>
               {demandState[section.itemKey] === 'done' ? (
                 <span className="text-xs font-semibold text-evergreen flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" /> You'll be notified
+                  <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" /> Request sent to the Estate Office
                 </span>
               ) : (
                 <button
@@ -313,7 +313,7 @@ export const PlanOptionsPage: React.FC = () => {
                   className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-surface-border bg-surface text-ink hover:border-evergreen/40 flex items-center gap-1.5 disabled:opacity-50 shrink-0 focus-ring"
                 >
                   <Bell className="w-3.5 h-3.5" aria-hidden="true" />
-                  {demandState[section.itemKey] === 'error' ? 'Retry' : 'Notify me when available'}
+                  {demandState[section.itemKey] === 'error' ? 'Retry' : 'Request this item'}
                 </button>
               )}
             </div>

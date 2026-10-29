@@ -24,6 +24,7 @@ import {
   AdminOverview,
   AdminSettings,
   AdminUserRow,
+  AdminWantedItem,
 } from '@sidekit/shared';
 import { ISidekitService } from './ISidekitService';
 
@@ -361,6 +362,10 @@ export class HttpSidekitService implements ISidekitService {
 
   async getAdminSettings(): Promise<AdminSettings> {
     return this.request<AdminSettings>('/admin/settings');
+  }
+
+  async getAdminWanted(): Promise<AdminWantedItem[]> {
+    return this.request<AdminWantedItem[]>('/admin/wanted');
   }
 
   async adminModerateListing(listingId: string, action: AdminListingAction, reason?: string): Promise<Listing> {

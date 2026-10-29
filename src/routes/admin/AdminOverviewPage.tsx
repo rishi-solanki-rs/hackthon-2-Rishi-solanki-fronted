@@ -35,7 +35,7 @@ export const AdminOverviewPage: React.FC = () => {
         <StatTile label="Public listings" value={counts.activeListings} to="/admin/listings" />
         <StatTile label="Open requests" value={counts.openRequests} to="/admin/requests" />
         <StatTile label="Residents" value={counts.users} to="/admin/users" />
-        <StatTile label="All listings" value={counts.listings} />
+        <StatTile label="Wanted, not listed" value={counts.wantedItems} to="/admin/wanted" tone={counts.wantedItems ? 'warn' : 'default'} />
         <StatTile label="All requests" value={counts.requests} />
         <StatTile label="Completed requests" value={data.requestsByStatus.completed || 0} />
       </div>

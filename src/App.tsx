@@ -29,6 +29,7 @@ import { AdminOverviewPage } from './routes/admin/AdminOverviewPage';
 import { AdminApprovalsPage } from './routes/admin/AdminApprovalsPage';
 import { AdminReportsPage } from './routes/admin/AdminReportsPage';
 import { AdminListingsPage } from './routes/admin/AdminListingsPage';
+import { AdminWantedPage } from './routes/admin/AdminWantedPage';
 import { AdminUsersPage } from './routes/admin/AdminUsersPage';
 import { AdminRequestsPage } from './routes/admin/AdminRequestsPage';
 import { AdminLeaderboardPage } from './routes/admin/AdminLeaderboardPage';
@@ -101,6 +102,7 @@ export const App: React.FC = () => {
                 <Route index element={<AdminOverviewPage />} />
                 <Route path="approvals" element={<AdminApprovalsPage />} />
                 <Route path="reports" element={<AdminReportsPage />} />
+                <Route path="wanted" element={<AdminWantedPage />} />
                 <Route path="listings" element={<AdminListingsPage />} />
                 <Route path="users" element={<AdminUsersPage />} />
                 <Route path="requests" element={<AdminRequestsPage />} />

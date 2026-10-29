@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, ClipboardCheck, Flag, Package, Users, ArrowLeftRight, Trophy, Settings } from 'lucide-react';
+import { LayoutDashboard, ClipboardCheck, Flag, Package, Users, ArrowLeftRight, Trophy, Settings, BellRing } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { sidekitService } from '../../services';
 import { FeatureIcon } from '../../components/brand/sidekit-icons';
@@ -14,6 +14,7 @@ const NAV = [
   { to: '/admin', label: 'Overview', icon: LayoutDashboard, end: true },
   { to: '/admin/approvals', label: 'Approvals', icon: ClipboardCheck, count: 'pending' as const },
   { to: '/admin/reports', label: 'Reports', icon: Flag, count: 'reported' as const },
+  { to: '/admin/wanted', label: 'Wanted', icon: BellRing, count: 'wanted' as const },
   { to: '/admin/listings', label: 'Listings', icon: Package },
   { to: '/admin/users', label: 'Residents', icon: Users },
   { to: '/admin/requests', label: 'Requests', icon: ArrowLeftRight },
@@ -23,14 +24,18 @@ const NAV = [
 
 export const AdminLayout: React.FC = () => {
   const { currentUser } = useAuth();
-  const [counts, setCounts] = useState({ pending: 0, reported: 0 });
+  const [counts, setCounts] = useState({ pending: 0, reported: 0, wanted: 0 });
   const isAdmin = currentUser?.role === 'admin';
 
   const refreshCounts = useCallback(() => {
     if (!isAdmin) return;
     sidekitService
       .getAdminQueue()
-      .then((q) => setCounts({ pending: q.pendingListings.length, reported: q.reportedListings.length + q.hiddenListings.length }))
+      .then((q) => setCounts((c) => ({ ...c, pending: q.pendingListings.length, reported: q.reportedListings.length + q.hiddenListings.length })))
+      .catch(() => undefined);
+    sidekitService
+      .getAdminWanted()
+      .then((w) => setCounts((c) => ({ ...c, wanted: w.filter((i) => i.status === 'open').length })))
       .catch(() => undefined);
   }, [isAdmin]);
 

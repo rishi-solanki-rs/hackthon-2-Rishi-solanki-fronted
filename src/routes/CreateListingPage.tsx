@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
 import { ListingCategory, ListingMode, ListingCondition, evaluateItemSafety, matchCatalogItem, LISTING_CATEGORIES, CATEGORY_LABELS } from '@sidekit/shared';
 import { useAuth } from '../context/AuthContext';
@@ -16,9 +16,10 @@ const CATALOG_TEMPLATES = [
 
 export const CreateListingPage: React.FC = () => {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const { currentUser } = useAuth();
   const needsApproval = currentUser?.role !== 'admin';
-  const [title, setTitle] = useState('');
+  // Pre-filled from the admin Wanted page so the new listing matches the residents' request
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<ListingCategory>('diy');
   const [mode, setMode] = useState<ListingMode>('lend');
@@ -29,7 +30,8 @@ export const CreateListingPage: React.FC = () => {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [templateKey, setTemplateKey] = useState<string | null>(null);
+  const [title, setTitle] = useState(() => (params.get('title') || '').slice(0, 120));
+  const [templateKey, setTemplateKey] = useState<string | null>(() => params.get('itemKey')?.replace(/[^a-z0-9_]/g, '').slice(0, 60) || null);
 
   const safety = title.trim().length > 0 ? evaluateItemSafety(title) : null;
   const consumableModeError = safety?.isConsumable && mode !== 'sell_used'
