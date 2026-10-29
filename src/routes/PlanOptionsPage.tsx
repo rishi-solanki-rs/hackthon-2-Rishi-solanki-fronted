@@ -339,6 +339,8 @@ export const PlanOptionsPage: React.FC = () => {
                         : 'bg-surface border-surface-border'
                     }`}
                   >
+                    <div className="flex-1 min-w-0 flex gap-3">
+                    <ItemThumb itemKey={section.itemKey} title={opt.title} category={section.category} imageUrl={opt.imageUrl} size={56} className="hidden sm:inline-block" />
                     <div className="flex-1 min-w-0 space-y-1.5">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${meta?.cls || ''}`}>
@@ -370,11 +372,12 @@ export const PlanOptionsPage: React.FC = () => {
                         </div>
                       )}
                     </div>
+                    </div>
 
                     <div className="flex items-center justify-between sm:flex-col sm:items-end gap-3 shrink-0">
                       <div className="text-right">
                         {isFree ? (
-                          <span className="text-xl font-bold text-emerald-600">₹0</span>
+                          <span className="text-xl font-bold text-emerald-600">Free</span>
                         ) : opt.priceUnknown || opt.unitPrice === null ? (
                           <span className="text-xs text-ink-muted font-medium">Price not available</span>
                         ) : opt.priceUnit === 'day' ? (
@@ -385,9 +388,9 @@ export const PlanOptionsPage: React.FC = () => {
                         ) : (
                           <div>
                             <span className="text-base font-bold text-ink">₹{opt.unitPrice.toLocaleString('en-IN')}</span>
-                            {section.missingQuantity > 1 && (
+                            {section.missingQuantity > 1 && typeof opt.totalEstimatedCost === 'number' && (
                               <span className="block text-[11px] text-ink-muted">
-                                ₹{(opt.totalEstimatedCost ?? 0).toLocaleString('en-IN')} for {section.missingQuantity}
+                                ₹{opt.totalEstimatedCost.toLocaleString('en-IN')} for {section.missingQuantity}
                               </span>
                             )}
                           </div>

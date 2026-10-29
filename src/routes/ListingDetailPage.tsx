@@ -4,7 +4,8 @@ import { ArrowLeft, Edit, Flag, CheckCircle2, AlertCircle, Star, MapPin } from '
 import { CATEGORY_LABELS, Listing, ListingCategory, Request, User } from '@sidekit/shared';
 import { sidekitService } from '../services';
 import { SampleBadge } from '../components/shared/SampleBadge';
-import { PRICE_NOT_AVAILABLE, listingPriceLabel } from '../components/shared/listingPrice';
+import { PRICE_NOT_AVAILABLE } from '../components/shared/listingPrice';
+import { ListingCard } from '../components/shared/ListingCard';
 import { ItemHero } from '../components/brand/itemIcons';
 import { BrandLoader, EmptyState } from '../components/brand/BrandStates';
 import { useAuth } from '../context/AuthContext';
@@ -336,29 +337,11 @@ export const ListingDetailPage: React.FC = () => {
             </Link>
           </div>
           <ul className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {similar.map((l) => {
-              const m = MODE_STYLES[l.mode];
-              return (
-                <li key={l.id}>
-                  <Link
-                    to={`/listing/${l.id}`}
-                    className="group block bg-surface rounded-2xl border border-surface-border overflow-hidden hover:border-evergreen/30 transition-colors focus-ring"
-                  >
-                    <div className="aspect-[4/3] relative">
-                      <ItemHero itemKey={l.itemKey} title={l.title} category={l.category} imageUrl={l.photos?.[0]} className="w-full h-full" />
-                      <span className={`absolute top-2 left-2 text-[10px] font-bold px-1.5 py-0.5 rounded ${m.solid}`}>{m.short}</span>
-                    </div>
-                    <div className="p-2.5">
-                      <p className="text-xs font-semibold text-ink line-clamp-2 group-hover:text-evergreen">{l.title}</p>
-                      <p className="text-[11px] text-ink-muted mt-0.5 flex items-center gap-1">
-                        {listingPriceLabel(l)}
-                        {l.isSample && l.mode !== 'lend' && l.price !== null && <SampleBadge />}
-                      </p>
-                    </div>
-                  </Link>
-                </li>
-              );
-            })}
+            {similar.map((l) => (
+              <li key={l.id}>
+                <ListingCard listing={l} compact />
+              </li>
+            ))}
           </ul>
         </section>
       )}
