@@ -44,7 +44,8 @@ export const AdminLeaderboardPage: React.FC = () => {
                   {u.displayName}
                 </Link>
                 <p className="text-xs text-ink-muted">
-                  {u.tower} · {u.activeListings} public listings ({u.freeListings} free) · {u.thankYouNotes} thank-you notes
+                  {u.tower} · {u.activeListings} public listing{u.activeListings === 1 ? '' : 's'} ({u.freeListings} free) · {u.thankYouNotes} thank-you
+                  note{u.thankYouNotes === 1 ? '' : 's'}
                 </p>
               </div>
               <div className="text-right">
