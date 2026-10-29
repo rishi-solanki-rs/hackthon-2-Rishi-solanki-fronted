@@ -36,8 +36,11 @@ export const BrowseCatalogPage: React.FC = () => {
   const [onlyAvailable, setOnlyAvailable] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  const [loadError, setLoadError] = useState('');
+
   const fetchListings = async (q = query) => {
     setIsLoading(true);
+    setLoadError('');
     try {
       const data = await sidekitService.searchListings({
         query: q.trim() || undefined,
@@ -45,8 +48,11 @@ export const BrowseCatalogPage: React.FC = () => {
         mode: mode !== 'all' ? mode as ListingMode : undefined,
         onlyAvailable,
       });
-      setListings(data);
-    } catch {}
+      setListings(data.filter((l) => l.status !== 'closed'));
+    } catch (err: any) {
+      setListings([]);
+      setLoadError(err?.message || 'Could not load the catalog.');
+    }
     setIsLoading(false);
   };
 
@@ -121,6 +127,13 @@ export const BrowseCatalogPage: React.FC = () => {
       {/* Grid */}
       {isLoading ? (
         <div className="py-16 text-center text-sm text-ink-muted">Loading catalog...</div>
+      ) : loadError ? (
+        <div role="alert" className="py-16 text-center space-y-3">
+          <p className="text-sm text-red-700">{loadError}</p>
+          <button onClick={() => fetchListings()} className="text-xs text-evergreen font-semibold hover:underline">
+            Try again
+          </button>
+        </div>
       ) : listings.length === 0 ? (
         <div className="py-16 text-center space-y-3">
           <p className="text-sm text-ink-muted">No listings match your filters.</p>

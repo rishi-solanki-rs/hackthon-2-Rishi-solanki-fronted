@@ -420,8 +420,11 @@ export class MockSidekitService implements ISidekitService {
   async searchListings(filters?: ListingSearchFilters): Promise<Listing[]> {
     let listings: Listing[] = JSON.parse(this.getItem(STORAGE_KEYS.LISTINGS) || '[]');
 
-    // Do not show hidden listings to regular search
-    listings = listings.filter((l) => l.moderationStatus !== 'hidden_by_admin');
+    // Hidden listings never appear; closed ones only for their owner (My Listings)
+    const currentId = this.getItem(STORAGE_KEYS.CURRENT_USER_ID) || 'usr_rishi';
+    listings = listings.filter(
+      (l) => l.moderationStatus !== 'hidden_by_admin' && (l.status !== 'closed' || l.ownerId === currentId)
+    );
 
     if (!filters) return listings;
 
