@@ -1,7 +1,21 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { X, Bell, CheckCircle, Clock, AlertTriangle, ArrowRight } from 'lucide-react';
-import { AppNotification } from '@sidekit/shared';
+import { X, ArrowRight } from 'lucide-react';
+import { AppNotification, NotificationType } from '@sidekit/shared';
+import { FeatureIcon, FeatureIconName } from '../brand/sidekit-icons';
+import { Illustration } from '../brand/sidekit-art';
+
+const NOTIFICATION_ICONS: Record<NotificationType, FeatureIconName> = {
+  request_received: 'inbox',
+  request_accepted: 'owned',
+  request_declined: 'declined',
+  request_cancelled: 'declined',
+  handover_reminder: 'handover',
+  return_due: 'pending',
+  listing_reported: 'safety',
+  listing_hidden: 'safety',
+  thank_you: 'returned',
+};
 
 interface NotificationDrawerProps {
   isOpen: boolean;
@@ -19,10 +33,10 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
+    <div className="fixed inset-0 z-50 overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="notifications-title">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-ink/30 backdrop-blur-sm transition-opacity"
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
 
@@ -31,15 +45,16 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
           {/* Header */}
           <div className="p-4 sm:p-6 border-b border-surface-border flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Bell className="w-5 h-5 text-evergreen" />
-              <h2 className="text-lg font-bold text-ink">Notifications</h2>
+              <FeatureIcon name="inbox" size={22} />
+              <h2 id="notifications-title" className="text-lg font-bold text-ink">Notifications</h2>
               <span className="text-xs bg-surface-secondary px-2 py-0.5 rounded-full font-semibold text-ink-muted">
                 {notifications.filter((n) => !n.read).length} Unread
               </span>
             </div>
             <button
               onClick={onClose}
-              className="p-1 rounded-lg text-ink-muted hover:bg-surface-secondary"
+              className="p-1 rounded-lg text-ink-muted hover:bg-surface-secondary focus-ring"
+              aria-label="Close notifications"
             >
               <X className="w-5 h-5" />
             </button>
@@ -48,22 +63,13 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
           {/* List */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3">
             {notifications.length === 0 ? (
-              <div className="text-center py-12 text-ink-muted text-sm">
-                No notifications right now.
+              <div className="text-center py-10 space-y-3">
+                <Illustration name="inbox-empty" width={160} className="brand-art mx-auto" />
+                <p className="text-sm text-ink-muted">No notifications right now.</p>
               </div>
             ) : (
               notifications.map((notif) => {
-                const getIcon = () => {
-                  switch (notif.type) {
-                    case 'request_accepted':
-                      return <CheckCircle className="w-4 h-4 text-emerald-600" />;
-                    case 'request_cancelled':
-                    case 'request_declined':
-                      return <AlertTriangle className="w-4 h-4 text-rose-500" />;
-                    default:
-                      return <Clock className="w-4 h-4 text-evergreen" />;
-                  }
-                };
+                const getIcon = () => <FeatureIcon name={NOTIFICATION_ICONS[notif.type] || 'pending'} size={18} />;
 
                 return (
                   <div
@@ -82,7 +88,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
                         <div className="flex items-center justify-between gap-1">
                           <h4 className="text-xs font-bold text-ink truncate">{notif.title}</h4>
                           <span className="text-[10px] text-ink-muted">
-                            {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(notif.createdAt).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
                         <p className="text-xs text-ink-muted mt-0.5 leading-relaxed">{notif.message}</p>

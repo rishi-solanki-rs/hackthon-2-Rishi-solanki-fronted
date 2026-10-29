@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
 
@@ -23,10 +24,12 @@ import { UserProfilePage } from './routes/UserProfilePage';
 import { SocietyImpactPage } from './routes/SocietyImpactPage';
 import { AdminPanelPage } from './routes/AdminPanelPage';
 import { HelpSafetyPage } from './routes/HelpSafetyPage';
+import { NotFoundPage } from './routes/NotFoundPage';
 
 export const App: React.FC = () => {
   return (
     <BrowserRouter>
+      <ThemeProvider>
       <AuthProvider>
         <div className="min-h-screen flex flex-col bg-canvas text-ink">
           <Header />
@@ -90,12 +93,13 @@ export const App: React.FC = () => {
               <Route path="/safety" element={<HelpSafetyPage />} />
 
               {/* Fallback */}
-              <Route path="*" element={<LandingPage />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </main>
           <Footer />
         </div>
       </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 };

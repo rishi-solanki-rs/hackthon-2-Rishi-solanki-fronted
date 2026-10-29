@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Edit, Flag, CheckCircle2, AlertCircle } from 'lucide-react';
-import { Listing } from '@sidekit/shared';
+import { Listing, Request } from '@sidekit/shared';
 import { sidekitService } from '../services';
 import { SampleBadge } from '../components/shared/SampleBadge';
 import { PRICE_NOT_AVAILABLE } from '../components/shared/listingPrice';
+import { ItemHero } from '../components/brand/itemIcons';
+import { BrandLoader, EmptyState } from '../components/brand/BrandStates';
 import { useAuth } from '../context/AuthContext';
 
 const modeBadge = (mode: string) => {
-  if (mode === 'lend') return { label: 'Free Borrow', cls: 'bg-emerald-600 text-white' };
-  if (mode === 'rent') return { label: 'Rental', cls: 'bg-blue-600 text-white' };
-  return { label: 'Pre-Owned Sale', cls: 'bg-purple-600 text-white' };
+  if (mode === 'lend') return { label: 'Free Borrow', cls: 'bg-brand text-white' };
+  if (mode === 'rent') return { label: 'Rental', cls: 'bg-info text-white' };
+  return { label: 'Pre-Owned Sale', cls: 'bg-used text-white' };
 };
 
 export const ListingDetailPage: React.FC = () => {
@@ -35,12 +37,19 @@ export const ListingDetailPage: React.FC = () => {
   const [reportReason, setReportReason] = useState('Unsafe or broken tool');
   const [reportSuccess, setReportSuccess] = useState('');
 
+  const [activeRequest, setActiveRequest] = useState<Request | null>(null);
+
   useEffect(() => {
     if (!id) return;
     sidekitService.getListing(id).then((data) => {
       if (data) setListing(data);
       setIsLoading(false);
     }).catch(() => setIsLoading(false));
+    sidekitService.getMyRequests()
+      .then((mine) => setActiveRequest(
+        mine.find((r) => r.listingId === id && (r.status === 'pending' || r.status === 'accepted' || r.status === 'handed_over')) || null
+      ))
+      .catch(() => setActiveRequest(null));
 
     const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
     const dayAfter = new Date(); dayAfter.setDate(dayAfter.getDate() + 2);
@@ -76,15 +85,21 @@ export const ListingDetailPage: React.FC = () => {
     } catch (err: any) { alert(err.message); }
   };
 
-  if (isLoading) return <div className="max-w-4xl mx-auto py-20 text-center text-sm text-ink-muted">Loading...</div>;
+  if (isLoading) return <BrandLoader label="Loading listing…" />;
   if (!listing) return (
-    <div className="max-w-4xl mx-auto py-20 text-center space-y-4">
-      <p className="text-ink-muted">Listing not found.</p>
-      <Link to="/browse" className="text-sm text-evergreen font-semibold hover:underline">← Browse Catalog</Link>
+    <div className="max-w-4xl mx-auto py-10 px-4">
+      <EmptyState
+        illustration="not-found"
+        title="Listing not found"
+        description="It may have been closed by its owner or removed by moderation."
+        action={<Link to="/browse" className="text-sm text-evergreen font-semibold hover:underline">← Browse Catalog</Link>}
+      />
     </div>
   );
 
   const isOwner = currentUser?.id === listing.ownerId;
+  const isHidden = listing.moderationStatus === 'hidden_by_admin';
+  const isUnavailable = listing.status !== 'active' || isHidden;
   const badge = modeBadge(listing.mode);
   const isSell = listing.mode === 'sell_used';
   const priceDisplay = listing.mode === 'lend'
@@ -102,8 +117,8 @@ export const ListingDetailPage: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Photo */}
-        <div className="relative rounded-2xl overflow-hidden border border-surface-border bg-surface-secondary aspect-[4/3]">
-          <img src={listing.photos[0]} alt={listing.title} className="w-full h-full object-cover" />
+        <div className="relative rounded-2xl overflow-hidden border border-surface-border aspect-[4/3]">
+          <ItemHero itemKey={listing.itemKey} title={listing.title} iconSize={120} className="w-full h-full" />
           <div className="absolute top-3 left-3 flex gap-2">
             {listing.isSample && <SampleBadge />}
             <span className={`text-[11px] font-bold px-2 py-0.5 rounded uppercase tracking-wide ${badge.cls}`}>
@@ -133,7 +148,9 @@ export const ListingDetailPage: React.FC = () => {
             </div>
             <div className="p-3 bg-surface-secondary rounded-xl">
               <span className="text-ink-muted block">Owner</span>
-              <span className="font-semibold text-ink mt-0.5 block">{listing.ownerDisplayName}</span>
+              <Link to={`/u/${listing.ownerId}`} className="font-semibold text-ink mt-0.5 block hover:text-evergreen">
+                {listing.ownerDisplayName}
+              </Link>
             </div>
             <div className="p-3 bg-surface-secondary rounded-xl">
               <span className="text-ink-muted block">Tower</span>
@@ -163,33 +180,49 @@ export const ListingDetailPage: React.FC = () => {
           <div className="space-y-2 pt-1">
             {isOwner ? (
               <div className="flex items-center justify-between p-3 bg-surface-secondary rounded-xl border border-surface-border text-xs">
-                <span className="text-ink-muted">This is your listing</span>
-                <Link to={`/my/listings/${listing.id}/edit`}
-                  className="flex items-center gap-1 text-ink font-semibold hover:text-evergreen">
-                  <Edit className="w-3.5 h-3.5" />
-                  Edit
-                </Link>
+                <span className="text-ink-muted">
+                  {isHidden ? 'This listing is under moderation review and cannot be edited.' : 'This is your listing'}
+                </span>
+                {!isHidden && (
+                  <Link to={`/my/listings/${listing.id}/edit`}
+                    className="flex items-center gap-1 text-ink font-semibold hover:text-evergreen">
+                    <Edit className="w-3.5 h-3.5" />
+                    Edit
+                  </Link>
+                )}
+              </div>
+            ) : activeRequest ? (
+              <Link to="/my/requests"
+                className="w-full py-3 flex items-center justify-center gap-2 bg-surface-secondary border border-surface-border text-ink rounded-xl font-semibold text-sm">
+                <CheckCircle2 className="w-4 h-4 text-evergreen" aria-hidden="true" />
+                Request already sent · track it
+              </Link>
+            ) : isUnavailable ? (
+              <div className="w-full py-3 text-center bg-surface-secondary border border-surface-border text-ink-muted rounded-xl text-sm">
+                Not available right now
               </div>
             ) : (
               <button onClick={() => setIsRequestOpen(true)}
-                className="w-full py-3 bg-evergreen hover:bg-evergreen-dark text-white rounded-xl font-semibold text-sm transition-colors">
+                className="w-full py-3 bg-brand hover:bg-brand-dark text-white rounded-xl font-semibold text-sm transition-colors focus-ring">
                 {listing.mode === 'lend' ? 'Request Free Borrow' : listing.mode === 'rent' ? 'Request Rental' : 'Request to Buy'}
               </button>
             )}
 
-            <button onClick={() => setIsReportOpen(true)}
-              className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-rose-600 transition-colors">
-              <Flag className="w-3 h-3" />
-              Report listing
-            </button>
+            {!isOwner && (
+              <button onClick={() => setIsReportOpen(true)}
+                className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-rose-600 transition-colors">
+                <Flag className="w-3 h-3" />
+                Report listing
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       {/* Request Modal */}
       {isRequestOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-ink/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl border border-surface-border">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-surface rounded-2xl w-full max-w-md p-6 shadow-2xl border border-surface-border">
             <h3 className="text-base font-bold text-ink mb-1">Send Request</h3>
             <p className="text-xs text-ink-muted mb-4">{listing.title} · {listing.ownerDisplayName}</p>
 
@@ -240,7 +273,7 @@ export const ListingDetailPage: React.FC = () => {
                   <button type="button" onClick={() => setIsRequestOpen(false)}
                     className="px-4 py-2 text-xs text-ink-muted hover:bg-surface-secondary rounded-lg">Cancel</button>
                   <button type="submit" disabled={submitting}
-                    className="px-5 py-2 text-xs font-semibold bg-evergreen hover:bg-evergreen-dark text-white rounded-xl disabled:opacity-50">
+                    className="px-5 py-2 text-xs font-semibold bg-brand hover:bg-brand-dark text-white rounded-xl disabled:opacity-50">
                     {submitting ? 'Sending...' : 'Send Request'}
                   </button>
                 </div>
@@ -252,8 +285,8 @@ export const ListingDetailPage: React.FC = () => {
 
       {/* Report Modal */}
       {isReportOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-surface-border">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-surface rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-surface-border">
             <h3 className="text-sm font-bold text-ink mb-1">Report Listing</h3>
             <p className="text-xs text-ink-muted mb-4">3 distinct reports will automatically hide this listing.</p>
 
@@ -274,7 +307,7 @@ export const ListingDetailPage: React.FC = () => {
                   <button type="button" onClick={() => setIsReportOpen(false)}
                     className="px-4 py-2 text-xs text-ink-muted hover:bg-surface-secondary rounded-lg">Cancel</button>
                   <button type="submit"
-                    className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-xl">
+                    className="px-4 py-2 text-xs font-semibold bg-danger hover:bg-danger/90 text-white rounded-xl">
                     Submit Report
                   </button>
                 </div>

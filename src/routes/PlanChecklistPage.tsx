@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowRight, Plus, Trash2, Check, PackageCheck, AlertCircle, Sparkles } from 'lucide-react';
+import { ArrowRight, Plus, Trash2, Check, AlertCircle } from 'lucide-react';
 import { Plan, PlanChecklistItem, evaluateItemSafety, isItemSuppressedByGate } from '@sidekit/shared';
 import { sidekitService } from '../services';
 import { SafetyGateNotice } from '../components/shared/SafetyGateNotice';
+import { ItemThumb } from '../components/brand/itemIcons';
+import { BrandLoader, EmptyState } from '../components/brand/BrandStates';
+import { FeatureIcon } from '../components/brand/sidekit-icons';
 
 export const PlanChecklistPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -89,14 +92,15 @@ export const PlanChecklistPage: React.FC = () => {
   };
 
   if (isLoading) {
-    return <div className="max-w-2xl mx-auto py-20 text-center text-sm text-ink-muted">Loading checklist...</div>;
+    return <BrandLoader label="Loading checklist…" />;
   }
 
   if (!plan) {
     return (
-      <div className="max-w-2xl mx-auto py-20 text-center space-y-4">
-        <p className="text-ink-muted text-sm">Plan not found.</p>
-        <Link to="/plan/new" className="text-sm text-evergreen font-semibold hover:underline">← New Plan</Link>
+      <div className="max-w-2xl mx-auto py-10 px-4">
+        <EmptyState illustration="not-found" title="Plan not found"
+          description="Plans belong to the persona that created them. Switch back, or start a new plan."
+          action={<Link to="/plan/new" className="text-sm text-evergreen font-semibold hover:underline">← New Plan</Link>} />
       </div>
     );
   }
@@ -115,7 +119,7 @@ export const PlanChecklistPage: React.FC = () => {
         </p>
         {plan.aiSource && (
           <p className="flex items-center gap-1 text-[11px] text-ink-subtle">
-            <Sparkles className="w-3 h-3" aria-hidden="true" />
+            <FeatureIcon name="sparkle" size={14} />
             {plan.aiSource === 'gemini'
               ? 'Checklist suggested by AI — review it before you continue.'
               : 'Checklist from a standard template (AI unavailable right now).'}
@@ -126,7 +130,7 @@ export const PlanChecklistPage: React.FC = () => {
       {plan.safetyGate && <SafetyGateNotice gate={plan.safetyGate} />}
 
       {/* Items */}
-      <div className="bg-white rounded-2xl border border-surface-border overflow-hidden">
+      <div className="bg-surface rounded-2xl border border-surface-border overflow-hidden">
         {items.length === 0 ? (
           <div className="py-10 text-center text-sm text-ink-muted">No items. Add one below.</div>
         ) : (
@@ -137,20 +141,24 @@ export const PlanChecklistPage: React.FC = () => {
                 <div
                   key={item.id}
                   className={`flex items-center gap-3 p-4 border-b border-surface-border last:border-0 transition-colors ${
-                    owned ? 'bg-surface-secondary/40' : 'bg-white'
+                    owned ? 'bg-surface-secondary/40' : 'bg-surface'
                   }`}
                 >
                   {/* Checkbox */}
                   <button
                     type="button"
                     onClick={() => toggle(idx)}
-                    className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
-                      owned ? 'bg-evergreen border-evergreen' : 'border-surface-border hover:border-evergreen'
+                    role="checkbox"
+                    aria-checked={owned}
+                    className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors focus-ring ${
+                      owned ? 'bg-brand border-brand' : 'border-surface-border hover:border-evergreen'
                     }`}
-                    aria-label={owned ? 'Mark as needed' : 'Mark as owned'}
+                    aria-label={`I already own ${item.name}`}
                   >
                     {owned && <Check className="w-3 h-3 text-white stroke-[3]" />}
                   </button>
+
+                  <ItemThumb itemKey={item.itemKey} title={item.name} size={36} />
 
                   {/* Name + reason */}
                   <div className="flex-1 min-w-0">
@@ -177,6 +185,7 @@ export const PlanChecklistPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => adjustQty(idx, -1)}
+                      aria-label={`Decrease quantity of ${item.name}`}
                       className="w-6 h-6 rounded border border-surface-border flex items-center justify-center text-ink-muted hover:text-ink text-sm"
                     >
                       −
@@ -185,6 +194,7 @@ export const PlanChecklistPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => adjustQty(idx, 1)}
+                      aria-label={`Increase quantity of ${item.name}`}
                       className="w-6 h-6 rounded border border-surface-border flex items-center justify-center text-ink-muted hover:text-ink text-sm"
                     >
                       +
@@ -215,7 +225,7 @@ export const PlanChecklistPage: React.FC = () => {
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder="Item name"
-                  className="flex-1 px-2.5 py-1.5 text-xs bg-white border border-surface-border rounded-lg focus-ring"
+                  className="flex-1 px-2.5 py-1.5 text-xs bg-surface border border-surface-border rounded-lg focus-ring"
                   required
                   autoFocus
                 />
@@ -224,7 +234,7 @@ export const PlanChecklistPage: React.FC = () => {
                   min="1"
                   value={newQty}
                   onChange={(e) => setNewQty(parseInt(e.target.value) || 1)}
-                  className="w-16 px-2.5 py-1.5 text-xs bg-white border border-surface-border rounded-lg focus-ring font-mono"
+                  className="w-16 px-2.5 py-1.5 text-xs bg-surface border border-surface-border rounded-lg focus-ring font-mono"
                 />
               </div>
               {addError && (
@@ -269,7 +279,7 @@ export const PlanChecklistPage: React.FC = () => {
       {/* All owned banner */}
       {allOwned && (
         <div className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-sm text-emerald-800">
-          <PackageCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+          <FeatureIcon name="owned" size={22} className="shrink-0" />
           <span>You own everything needed. You're ready to start!</span>
         </div>
       )}
@@ -288,7 +298,7 @@ export const PlanChecklistPage: React.FC = () => {
           type="button"
           onClick={proceed}
           disabled={isSaving || items.length === 0}
-          className="px-5 py-2.5 bg-evergreen hover:bg-evergreen-dark text-white rounded-xl font-semibold text-sm transition-colors flex items-center gap-2 disabled:opacity-50"
+          className="px-5 py-2.5 bg-brand hover:bg-brand-dark text-white rounded-xl font-semibold text-sm transition-colors flex items-center gap-2 disabled:opacity-50"
         >
           {isSaving ? (
             <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>Saving...</span></>

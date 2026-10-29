@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Bell, ChevronDown, Menu, X, Wrench, Shield } from 'lucide-react';
+import { Bell, ChevronDown, Menu, X, Shield, Moon, Sun } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
+import { Logo, LogoMark } from '../brand/sidekit-logo';
 import { sidekitService } from '../../services';
 import { AppNotification } from '@sidekit/shared';
 import { NotificationDrawer } from '../notifications/NotificationDrawer';
 
 export const Header: React.FC = () => {
   const { currentUser, allUsers, switchPersona } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -57,15 +60,13 @@ export const Header: React.FC = () => {
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-sm border-b border-surface-border">
+      <header className="sticky top-0 z-40 bg-surface/90 backdrop-blur-sm border-b border-surface-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group shrink-0">
-            <div className="w-7 h-7 rounded-lg bg-evergreen flex items-center justify-center">
-              <Wrench className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-bold text-ink text-base tracking-tight">Sidekit</span>
-            <span className="hidden sm:block text-xs text-ink-subtle border-l border-surface-border pl-2 ml-0.5">
+          <Link to="/" className="flex items-center gap-2.5 group shrink-0 focus-ring rounded-lg" aria-label="Sidekit home">
+            <LogoMark size={28} className="sm:hidden" aria-hidden="true" />
+            <Logo height={26} variant={theme === 'dark' ? 'reversed' : 'color'} className="hidden sm:block" aria-hidden="true" />
+            <span className="hidden sm:block text-xs text-ink-subtle border-l border-surface-border pl-2.5">
               Palm Grove
             </span>
           </Link>
@@ -82,6 +83,16 @@ export const Header: React.FC = () => {
 
           {/* Right controls */}
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="p-2 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-secondary transition-colors focus-ring"
+              aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              title={theme === 'dark' ? 'Light theme' : 'Dark theme'}
+            >
+              {theme === 'dark' ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
+            </button>
+
             {/* Notification bell */}
             <button
               onClick={() => setIsNotifOpen(true)}
@@ -90,7 +101,7 @@ export const Header: React.FC = () => {
             >
               <Bell className="w-4.5 h-4.5" style={{ width: '18px', height: '18px' }} />
               {unread > 0 && (
-                <span className="absolute top-1 right-1 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
+                <span className="absolute top-1 right-1 min-w-[16px] h-4 bg-danger text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
                   {unread > 9 ? '9+' : unread}
                 </span>
               )}
@@ -112,7 +123,7 @@ export const Header: React.FC = () => {
               </button>
 
               {isPersonaOpen && (
-                <div className="absolute right-0 mt-1.5 w-64 bg-white rounded-xl shadow-xl border border-surface-border overflow-hidden z-50">
+                <div className="absolute right-0 mt-1.5 w-64 bg-surface rounded-xl shadow-xl border border-surface-border overflow-hidden z-50">
                   <div className="px-3 py-2 bg-surface-secondary border-b border-surface-border">
                     <p className="text-[11px] font-bold text-ink uppercase tracking-wider">Switch Persona</p>
                     <p className="text-[10px] text-ink-muted mt-0.5">Demo simulation only — not real auth</p>
@@ -135,11 +146,11 @@ export const Header: React.FC = () => {
                           <div className="flex-1 min-w-0">
                             <div className="font-semibold truncate">{user.name}</div>
                             <div className="text-[10px] text-ink-muted truncate">
-                              {user.tower} · {user.flat}
+                              {user.tower}
                               {user.role === 'admin' && ' · Admin'}
                             </div>
                           </div>
-                          {active && <div className="w-1.5 h-1.5 rounded-full bg-evergreen shrink-0" />}
+                          {active && <div className="w-1.5 h-1.5 rounded-full bg-brand shrink-0" />}
                         </button>
                       );
                     })}
@@ -181,7 +192,7 @@ export const Header: React.FC = () => {
 
         {/* Mobile nav */}
         {isMobileOpen && (
-          <div className="md:hidden border-t border-surface-border bg-white px-4 py-2 space-y-0.5">
+          <div className="md:hidden border-t border-surface-border bg-surface px-4 py-2 space-y-0.5">
             {[
               ['/plan/new', 'Plan a Task'],
               ['/browse', 'Browse Catalog'],
@@ -189,7 +200,9 @@ export const Header: React.FC = () => {
               ['/my/requests', 'My Requests'],
               ['/my/listings', 'My Listings'],
               ['/impact', 'Society Impact'],
+              ['/me', 'My Profile'],
               ['/help', 'Help'],
+              ...(currentUser?.role === 'admin' ? [['/admin', 'Admin Panel']] : []),
             ].map(([to, label]) => (
               <Link
                 key={to}

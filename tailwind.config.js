@@ -1,5 +1,11 @@
 /** @type {import('tailwindcss').Config} */
+const v = (name) => `rgb(var(--c-${name}) / <alpha-value>)`;
+
+const scale = (name) =>
+  Object.fromEntries([50, 100, 200, 500, 600, 700, 800, 900].map((s) => [s, v(`${name}-${s}`)]));
+
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -7,27 +13,44 @@ export default {
   theme: {
     extend: {
       colors: {
-        canvas: '#F7F9F8',
+        canvas: v('canvas'),
         ink: {
-          DEFAULT: '#17231F',
-          primary: '#17231F',
-          muted: '#5C6B64',
-          subtle: '#8C9B94',
+          DEFAULT: v('ink'),
+          primary: v('ink'),
+          muted: v('ink-muted'),
+          subtle: v('ink-subtle'),
         },
+        // Accent for text, borders and tints; lightens in dark mode
         evergreen: {
-          light: '#E8F3EE',
-          DEFAULT: '#176B54',
-          dark: '#0F4737',
+          light: v('evergreen-light'),
+          DEFAULT: v('evergreen'),
+          dark: v('evergreen-dark'),
         },
+        // Solid fills that carry white text; stay dark enough in both themes
+        brand: {
+          DEFAULT: v('brand'),
+          dark: v('brand-dark'),
+        },
+        danger: v('danger'),
+        info: v('info'),
+        used: v('used'),
         lime: {
-          DEFAULT: '#D7F36A',
-          subtle: '#F4FCE3',
+          DEFAULT: v('lime'),
+          subtle: v('lime-subtle'),
         },
         surface: {
-          DEFAULT: '#FFFFFF',
-          secondary: '#F0F4F2',
-          border: '#E5EBE8',
+          DEFAULT: v('surface'),
+          secondary: v('surface-secondary'),
+          border: v('surface-border'),
         },
+        emerald: scale('emerald'),
+        amber: scale('amber'),
+        rose: scale('rose'),
+        red: scale('red'),
+        blue: scale('blue'),
+        purple: scale('purple'),
+        slate: scale('slate'),
+        orange: scale('orange'),
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
@@ -36,4 +59,3 @@ export default {
   },
   plugins: [],
 }
-

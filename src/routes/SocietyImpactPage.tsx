@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, Users, Leaf, Award } from 'lucide-react';
+import { FeatureIcon, FeatureIconName } from '../components/brand/sidekit-icons';
+import { BrandLoader } from '../components/brand/BrandStates';
 import { SocietyImpactStats, User } from '@sidekit/shared';
 import { sidekitService } from '../services';
 import { SampleBadge } from '../components/shared/SampleBadge';
@@ -21,7 +22,7 @@ export const SocietyImpactPage: React.FC = () => {
     }).catch(() => setIsLoading(false));
   }, []);
 
-  if (isLoading) return <div className="py-20 text-center text-sm text-ink-muted">Loading impact data...</div>;
+  if (isLoading) return <BrandLoader label="Loading impact data…" />;
 
   return (
     <div className="max-w-4xl mx-auto py-10 px-4 space-y-10">
@@ -40,13 +41,13 @@ export const SocietyImpactPage: React.FC = () => {
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
-            { icon: TrendingUp, label: 'Money Saved', value: `₹${stats.totalSavingsInr.toLocaleString('en-IN')}`, color: 'text-evergreen' },
-            { icon: Award, label: 'Completed Loans', value: String(stats.totalItemsShared), color: 'text-ink' },
-            { icon: Users, label: 'Active Families', value: String(stats.activeHouseholds), color: 'text-ink' },
-            { icon: Leaf, label: 'CO₂ Avoided', value: `${stats.co2AvoidedKg}kg`, color: 'text-emerald-600' },
-          ].map(({ icon: Icon, label, value, color }) => (
-            <div key={label} className="p-5 bg-white rounded-2xl border border-surface-border text-center space-y-2">
-              <Icon className={`w-5 h-5 mx-auto ${color}`} />
+            { icon: 'buy-used' as FeatureIconName, label: 'Money Saved', value: `₹${stats.totalSavingsInr.toLocaleString('en-IN')}`, color: 'text-evergreen' },
+            { icon: 'returned' as FeatureIconName, label: 'Completed Loans', value: String(stats.totalItemsShared), color: 'text-ink' },
+            { icon: 'neighbours' as FeatureIconName, label: 'Active Families', value: String(stats.activeHouseholds), color: 'text-ink' },
+            { icon: 'borrow' as FeatureIconName, label: 'CO₂ Avoided', value: `${stats.co2AvoidedKg}kg`, color: 'text-emerald-600' },
+          ].map(({ icon, label, value, color }) => (
+            <div key={label} className="p-5 bg-surface rounded-2xl border border-surface-border text-center space-y-2">
+              <FeatureIcon name={icon} size={28} className="mx-auto" />
               <div className={`text-2xl font-bold ${color}`}>{value}</div>
               <div className="text-xs text-ink-muted uppercase tracking-wider font-medium">{label}</div>
             </div>
@@ -56,7 +57,7 @@ export const SocietyImpactPage: React.FC = () => {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         {/* Top sharers leaderboard */}
-        <div className="bg-white rounded-2xl border border-surface-border p-5 space-y-4">
+        <div className="bg-surface rounded-2xl border border-surface-border p-5 space-y-4">
           <h2 className="text-sm font-bold text-ink">Top Community Sharers</h2>
           <div className="divide-y divide-surface-border">
             {topSharers.map((user, i) => (
@@ -80,7 +81,7 @@ export const SocietyImpactPage: React.FC = () => {
         </div>
 
         {/* Most wanted */}
-        <div className="bg-white rounded-2xl border border-surface-border p-5 space-y-4">
+        <div className="bg-surface rounded-2xl border border-surface-border p-5 space-y-4">
           <h2 className="text-sm font-bold text-ink">Most-Wanted Items</h2>
           <div className="divide-y divide-surface-border">
             {(stats?.mostWanted || []).map((item, i) => (
@@ -102,7 +103,7 @@ export const SocietyImpactPage: React.FC = () => {
 
       {/* Category bar chart */}
       {stats && (
-        <div className="bg-white rounded-2xl border border-surface-border p-5 space-y-4">
+        <div className="bg-surface rounded-2xl border border-surface-border p-5 space-y-4">
           <h2 className="text-sm font-bold text-ink">Top Shared Categories</h2>
           <div className="space-y-3">
             {stats.topSharedCategories.map((cat) => (
@@ -112,7 +113,7 @@ export const SocietyImpactPage: React.FC = () => {
                   <span className="text-ink-muted">{cat.count} loans</span>
                 </div>
                 <div className="h-1.5 w-full bg-surface-secondary rounded-full overflow-hidden">
-                  <div className="h-full bg-evergreen rounded-full transition-all"
+                  <div className="h-full bg-brand rounded-full transition-all"
                     style={{ width: `${Math.min(100, (cat.count / 70) * 100)}%` }} />
                 </div>
               </div>

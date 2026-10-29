@@ -16,6 +16,7 @@ import {
   JoinSocietyInput,
   SocietyImpactStats,
   AdminQueueData,
+  UserProfileSummary,
 } from '@sidekit/shared';
 import { ISidekitService } from './ISidekitService';
 
@@ -131,6 +132,10 @@ export class HttpSidekitService implements ISidekitService {
     }
   }
 
+  async getUserProfile(userId: string): Promise<UserProfileSummary> {
+    return this.request<UserProfileSummary>(`/users/${userId}/profile`);
+  }
+
   async joinSociety(data: JoinSocietyInput): Promise<User> {
     const user = await this.request<User>('/auth/join', {
       method: 'POST',
@@ -195,6 +200,7 @@ export class HttpSidekitService implements ISidekitService {
     if (filters?.mode && filters.mode !== 'all') params.set('mode', filters.mode);
     if (filters?.tower) params.set('tower', filters.tower);
     if (filters?.onlyAvailable) params.set('onlyAvailable', 'true');
+    if (filters?.ownerId) params.set('ownerId', filters.ownerId);
     const qs = params.toString();
     return this.request<Listing[]>(`/listings${qs ? '?' + qs : ''}`);
   }
@@ -281,6 +287,13 @@ export class HttpSidekitService implements ISidekitService {
     return this.request<Request>(`/requests/${requestId}/return`, {
       method: 'POST',
       body: JSON.stringify({ thankYouNote }),
+    });
+  }
+
+  async sendThankYou(requestId: string, message: string): Promise<Request> {
+    return this.request<Request>(`/requests/${requestId}/thank-you`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
     });
   }
 

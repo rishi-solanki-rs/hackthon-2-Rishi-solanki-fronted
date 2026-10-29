@@ -19,7 +19,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-surface rounded-2xl max-w-md w-full p-6 shadow-xl border border-surface-border animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between pb-3 border-b border-surface-border">
           <div className="flex items-center gap-2 text-evergreen font-semibold">
@@ -57,7 +57,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
           <div className="pt-2">
             <button
               onClick={onClose}
-              className="w-full py-2.5 px-4 bg-evergreen hover:bg-evergreen-dark text-white rounded-xl font-medium transition-colors shadow-sm"
+              className="w-full py-2.5 px-4 bg-brand hover:bg-brand-dark text-white rounded-xl font-medium transition-colors shadow-sm"
             >
               Close Simulation
             </button>

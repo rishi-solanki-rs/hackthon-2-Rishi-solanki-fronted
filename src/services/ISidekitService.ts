@@ -16,6 +16,7 @@ import {
   JoinSocietyInput,
   SocietyImpactStats,
   AdminQueueData,
+  UserProfileSummary,
 } from '@sidekit/shared';
 
 export interface ISidekitService {
@@ -24,6 +25,7 @@ export interface ISidekitService {
   switchUser(userId: string): Promise<User>;
   getAllUsers(): Promise<User[]>;
   getUserById(userId: string): Promise<User | undefined>;
+  getUserProfile(userId: string): Promise<UserProfileSummary>;
   joinSociety(data: JoinSocietyInput): Promise<User>;
   deleteAccount(userId: string): Promise<{ success: boolean; message?: string }>;
 
@@ -57,6 +59,7 @@ export interface ISidekitService {
   cancelRequest(requestId: string, reason: string): Promise<Request>;
   handoverRequest(requestId: string): Promise<Request>;
   returnRequest(requestId: string, thankYouNote?: string): Promise<Request>;
+  sendThankYou(requestId: string, message: string): Promise<Request>;
 
   // External Shops
   getExternalShops(): Promise<ExternalShop[]>;

@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Laptop, AlertTriangle, CheckCircle, Wrench, ArrowLeft, AlertCircle } from 'lucide-react';
-import { RepairEvaluationResult } from '@sidekit/shared';
+import { AlertTriangle, CheckCircle, ArrowLeft, AlertCircle } from 'lucide-react';
+import { Listing, RepairEvaluationResult } from '@sidekit/shared';
+import { ItemIcon } from '../components/brand/sidekit-icons';
+import { ItemThumb } from '../components/brand/itemIcons';
+import { listingPriceLabel } from '../components/shared/listingPrice';
+import { SampleBadge } from '../components/shared/SampleBadge';
 import { sidekitService } from '../services';
 
 export const PlanRepairPage: React.FC = () => {
@@ -15,6 +19,7 @@ export const PlanRepairPage: React.FC = () => {
   const [result, setResult] = useState<RepairEvaluationResult | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [error, setError] = useState('');
+  const [alternative, setAlternative] = useState<Listing | null>(null);
 
   const handleEvaluate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,6 +30,11 @@ export const PlanRepairPage: React.FC = () => {
         batteryHealthPercent: batteryHealth,
       });
       setResult(res);
+      setAlternative(null);
+      if (res.suggestedAlternativeListingId) {
+        const alt = await sidekitService.getListing(res.suggestedAlternativeListingId).catch(() => undefined);
+        setAlternative(alt && alt.status === 'active' && alt.moderationStatus !== 'hidden_by_admin' ? alt : null);
+      }
     } catch (err: any) { setError(err.message || 'Evaluation failed.'); }
     setIsEvaluating(false);
   };
@@ -34,7 +44,7 @@ export const PlanRepairPage: React.FC = () => {
       {/* Header */}
       <div className="space-y-1.5">
         <div className="flex items-center gap-2 text-xs font-semibold text-evergreen">
-          <Laptop className="w-3.5 h-3.5" />
+          <ItemIcon name="laptop" size={16} />
           Repair vs. Replace Advisor
         </div>
         <h1 className="text-2xl font-bold text-ink">Laptop Economics</h1>
@@ -44,7 +54,7 @@ export const PlanRepairPage: React.FC = () => {
       </div>
 
       {/* Input form */}
-      <form onSubmit={handleEvaluate} className="bg-white rounded-2xl border border-surface-border p-6 space-y-4">
+      <form onSubmit={handleEvaluate} className="bg-surface rounded-2xl border border-surface-border p-6 space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-semibold text-ink mb-1">Brand</label>
@@ -95,7 +105,7 @@ export const PlanRepairPage: React.FC = () => {
         )}
 
         <button type="submit" disabled={isEvaluating}
-          className="w-full py-3 bg-evergreen hover:bg-evergreen-dark text-white rounded-xl font-semibold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+          className="w-full py-3 bg-brand hover:bg-brand-dark text-white rounded-xl font-semibold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
           {isEvaluating ? (
             <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Evaluating...</>
           ) : 'Evaluate Repair Economics'}
@@ -125,11 +135,11 @@ export const PlanRepairPage: React.FC = () => {
 
           {/* Economics */}
           <div className="grid grid-cols-3 gap-3 text-center">
-            <div className="p-3 bg-white rounded-xl border border-surface-border">
+            <div className="p-3 bg-surface rounded-xl border border-surface-border">
               <div className="text-base font-bold text-ink">₹{result.estimatedRepairCostMin.toLocaleString('en-IN')}–{result.estimatedRepairCostMax.toLocaleString('en-IN')}</div>
               <div className="text-[10px] text-ink-muted uppercase tracking-wider mt-0.5">Repair Range</div>
             </div>
-            <div className="p-3 bg-white rounded-xl border border-surface-border">
+            <div className="p-3 bg-surface rounded-xl border border-surface-border">
               <div className="text-base font-bold text-ink">₹{result.currentResidualValue.toLocaleString('en-IN')}</div>
               <div className="text-[10px] text-ink-muted uppercase tracking-wider mt-0.5">Residual Value</div>
             </div>
@@ -143,7 +153,7 @@ export const PlanRepairPage: React.FC = () => {
 
           {/* Battery action */}
           {result.batteryAction && (
-            <div className="p-3 bg-white border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start gap-2">
+            <div className="p-3 bg-surface border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
               {result.batteryAction}
             </div>
@@ -160,13 +170,16 @@ export const PlanRepairPage: React.FC = () => {
           </div>
 
           {/* Suggest alternative */}
-          {result.suggestedAlternativeListingId && (
+          {alternative && (
             <div className="pt-3 border-t border-surface-border">
               <p className="text-xs text-ink-muted mb-2">A reliable refurbished alternative is available in your community:</p>
-              <Link to={`/listing/${result.suggestedAlternativeListingId}`}
-                className="flex items-center gap-2 p-3 bg-white rounded-xl border border-evergreen/30 hover:border-evergreen/50 transition-colors text-sm font-semibold text-evergreen">
-                <Wrench className="w-4 h-4 shrink-0" />
-                View ThinkPad T480 in Community Catalog →
+              <Link to={`/listing/${alternative.id}`}
+                className="flex items-center gap-3 p-3 bg-surface rounded-xl border border-evergreen/30 hover:border-evergreen/50 transition-colors">
+                <ItemThumb itemKey={alternative.itemKey} title={alternative.title} size={40} />
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm font-semibold text-evergreen truncate">{alternative.title}</span>
+                  <span className="flex items-center gap-1.5 text-xs text-ink-muted">{listingPriceLabel(alternative)} · {alternative.ownerDisplayName}{alternative.isSample && <SampleBadge />}</span>
+                </span>
               </Link>
             </div>
           )}

@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowRight, Sparkles, Wrench, TreePine, Laptop, Droplets, AlertCircle } from 'lucide-react';
+import { ArrowRight, AlertCircle } from 'lucide-react';
+import { ItemIcon, ItemIconName, FeatureIcon } from '../components/brand/sidekit-icons';
 import { sidekitService } from '../services';
 
 const TEMPLATES = [
-  { icon: Droplets, title: 'Balcony Deep Clean', task: 'Balcony deep clean and AC outdoor unit wash' },
-  { icon: Wrench, title: 'Wall Mount / Shelves', task: 'Mount bookshelf and frames on living room wall' },
-  { icon: TreePine, title: 'Garden & Hedges', task: 'Trim balcony hedges and repot garden plants' },
-  { icon: Laptop, title: 'Laptop Diagnosis', task: 'Laptop running slow, evaluate repair vs replacement' },
+  { icon: 'bucket' as ItemIconName, title: 'Balcony Deep Clean', task: 'Balcony deep clean and AC outdoor unit wash' },
+  { icon: 'drill' as ItemIconName, title: 'Wall Mount / Shelves', task: 'Mount bookshelf and frames on living room wall' },
+  { icon: 'toolbox' as ItemIconName, title: 'Garden & Hedges', task: 'Trim balcony hedges and repot garden plants' },
+  { icon: 'laptop' as ItemIconName, title: 'Laptop Diagnosis', task: 'Laptop running slow, evaluate repair vs replacement' },
 ];
 
 const MOUNTING_TASK = /\b(shelf|shelves|mount|mounting|frame|frames|mirror|tv|bracket|hang|hanging|cabinet|curtain rod|wall)\b/i;
@@ -73,7 +74,7 @@ export const PlanNewPage: React.FC = () => {
       {/* Header */}
       <div className="space-y-1.5">
         <div className="flex items-center gap-2 text-xs font-semibold text-evergreen">
-          <Sparkles className="w-3.5 h-3.5" />
+          <FeatureIcon name="sparkle" size={16} />
           <span>AI Task Planner</span>
         </div>
         <h1 className="text-2xl font-bold text-ink">What are you working on?</h1>
@@ -82,23 +83,19 @@ export const PlanNewPage: React.FC = () => {
 
       {/* Quick templates */}
       <div className="grid grid-cols-2 gap-2">
-        {TEMPLATES.map(({ icon: Icon, title, task: t }) => (
+        {TEMPLATES.map(({ icon, title, task: t }) => (
           <button
             key={title}
             type="button"
             onClick={() => setTask(t)}
-            className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2.5 group ${
+            aria-pressed={task === t}
+            className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2.5 group focus-ring ${
               task === t
-                ? 'border-evergreen/40 bg-evergreen/5 text-evergreen'
+                ? 'border-evergreen/40 bg-evergreen-light text-evergreen'
                 : 'border-surface-border bg-surface hover:border-evergreen/20 text-ink'
             }`}
-            style={{ background: task === t ? 'rgba(23,107,84,0.04)' : undefined }}
           >
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-              task === t ? 'bg-evergreen/10 text-evergreen' : 'bg-surface-secondary text-ink-muted'
-            }`}>
-              <Icon className="w-4 h-4" />
-            </div>
+            <ItemIcon name={icon} size={28} />
             <span className="text-xs font-semibold leading-tight">{title}</span>
           </button>
         ))}
@@ -196,7 +193,7 @@ export const PlanNewPage: React.FC = () => {
         <button
           type="submit"
           disabled={isSubmitting || task.trim().length < 3}
-          className="w-full py-3 bg-evergreen hover:bg-evergreen-dark text-white rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          className="w-full py-3 bg-brand hover:bg-brand-dark text-white rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
         >
           {isSubmitting ? (
             <>

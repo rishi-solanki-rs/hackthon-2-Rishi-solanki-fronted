@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building, ArrowRight, AlertCircle } from 'lucide-react';
+import { ArrowRight, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { Illustration } from '../components/brand/sidekit-art';
 
 export const JoinPage: React.FC = () => {
   const { joinSociety } = useAuth();
@@ -43,12 +44,10 @@ export const JoinPage: React.FC = () => {
 
   return (
     <div className="max-w-md mx-auto py-10 px-4">
-      <div className="bg-white rounded-2xl border border-surface-border p-8 space-y-6">
+      <div className="bg-surface rounded-2xl border border-surface-border p-8 space-y-6">
         {/* Header */}
         <div className="text-center space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-evergreen/10 text-evergreen flex items-center justify-center mx-auto">
-            <Building className="w-6 h-6" />
-          </div>
+          <Illustration name="join-society" width={200} className="brand-art mx-auto" />
           <h1 className="text-2xl font-bold text-ink">Join Palm Grove</h1>
           <p className="text-sm text-ink-muted">Sidekit is exclusive to verified society residents.</p>
         </div>
@@ -113,7 +112,7 @@ export const JoinPage: React.FC = () => {
           </div>
 
           <button type="submit" disabled={isSubmitting}
-            className="w-full py-3 bg-evergreen hover:bg-evergreen-dark text-white rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+            className="w-full py-3 bg-brand hover:bg-brand-dark text-white rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
             {isSubmitting ? (
               <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Registering...</>
             ) : (

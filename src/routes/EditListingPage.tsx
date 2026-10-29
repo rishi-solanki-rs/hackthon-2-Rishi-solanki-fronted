@@ -3,8 +3,11 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
 import { Listing, ListingCondition } from '@sidekit/shared';
 import { sidekitService } from '../services';
+import { useAuth } from '../context/AuthContext';
+import { BrandLoader, EmptyState } from '../components/brand/BrandStates';
 
 export const EditListingPage: React.FC = () => {
+  const { currentUser } = useAuth();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [listing, setListing] = useState<Listing | null>(null);
@@ -52,8 +55,21 @@ export const EditListingPage: React.FC = () => {
     setIsSubmitting(false);
   };
 
-  if (isLoading) return <div className="max-w-2xl mx-auto py-20 text-center text-sm text-ink-muted">Loading...</div>;
-  if (!listing) return <div className="max-w-2xl mx-auto py-20 text-center text-sm text-ink-muted">Listing not found.</div>;
+  if (isLoading) return <BrandLoader label="Loading listing…" />;
+  if (!listing || listing.ownerId !== currentUser?.id) return (
+    <div className="max-w-2xl mx-auto py-10 px-4">
+      <EmptyState illustration="not-found" title="Listing not found"
+        description="You can only edit listings you own."
+        action={<Link to="/my/listings" className="text-sm text-evergreen font-semibold hover:underline">← My Listings</Link>} />
+    </div>
+  );
+  if (listing.moderationStatus === 'hidden_by_admin') return (
+    <div className="max-w-2xl mx-auto py-10 px-4">
+      <EmptyState illustration="safety-professional" title="Under moderation review"
+        description="This listing was hidden after community reports. It can't be edited until an admin reviews it."
+        action={<Link to="/my/listings" className="text-sm text-evergreen font-semibold hover:underline">← My Listings</Link>} />
+    </div>
+  );
 
   return (
     <div className="max-w-2xl mx-auto py-10 px-4 space-y-6">
@@ -74,7 +90,7 @@ export const EditListingPage: React.FC = () => {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-surface-border p-6 space-y-5">
+      <form onSubmit={handleSubmit} className="bg-surface rounded-2xl border border-surface-border p-6 space-y-5">
         <div>
           <label className="block text-xs font-semibold text-ink mb-1">Title</label>
           <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
@@ -128,7 +144,7 @@ export const EditListingPage: React.FC = () => {
             Cancel
           </Link>
           <button type="submit" disabled={isSubmitting}
-            className="px-6 py-2.5 bg-evergreen hover:bg-evergreen-dark text-white rounded-xl font-semibold text-sm transition-colors disabled:opacity-50">
+            className="px-6 py-2.5 bg-brand hover:bg-brand-dark text-white rounded-xl font-semibold text-sm transition-colors disabled:opacity-50">
             {isSubmitting ? 'Saving...' : 'Save Changes'}
           </button>
         </div>

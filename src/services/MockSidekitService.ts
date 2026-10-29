@@ -33,7 +33,10 @@ import {
   normalizeChecklistItems,
   buildPlanOptionsMatrix,
   computeSocietyImpact,
+  computeUserProfile,
+  computeRequestTotal,
   DemandEntry,
+  UserProfileSummary,
 } from '@sidekit/shared';
 import { ISidekitService } from './ISidekitService';
 
@@ -151,6 +154,67 @@ export class MockSidekitService implements ISidekitService {
   async getUserById(userId: string): Promise<User | undefined> {
     const users = await this.getAllUsers();
     return users.find((u) => u.id === userId);
+  }
+
+  async getUserProfile(userId: string): Promise<UserProfileSummary> {
+    const users = await this.getAllUsers();
+    const user = users.find((u) => u.id === userId);
+    if (!user) throw new Error('User not found');
+    const listings: Listing[] = JSON.parse(this.getItem(STORAGE_KEYS.LISTINGS) || '[]');
+    return computeUserProfile(user, users, listings, await this.getAllRequests());
+  }
+
+  private async updateUser(userId: string, update: (u: User) => User): Promise<void> {
+    const users = await this.getAllUsers();
+    const idx = users.findIndex((u) => u.id === userId);
+    if (idx === -1) return;
+    users[idx] = update(users[idx]);
+    this.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+  }
+
+  async sendThankYou(requestId: string, message: string): Promise<Request> {
+    const user = await this.getCurrentUser();
+    const requests = await this.getAllRequests();
+    const target = requests.find((r) => r.id === requestId);
+    if (!target) throw new Error(`Request ${requestId} not found`);
+    if (target.requesterId !== user.id) throw new Error('Only the requester can send a thank-you note.');
+    if (target.status !== 'completed') throw new Error('You can send a thank-you note once the request is completed.');
+    if (target.thankYouNote) throw new Error('You already sent a thank-you note for this request.');
+    const text = message.trim().slice(0, 300);
+    if (text.length < 2) throw new Error('Please write a short note.');
+
+    target.thankYouNote = text;
+    target.updatedAt = this.getSimulatedTime().toISOString();
+    this.setItem(STORAGE_KEYS.REQUESTS, JSON.stringify(requests));
+
+    await this.updateUser(target.ownerId, (owner) => ({
+      ...owner,
+      thankYouNotes: [
+        ...(owner.thankYouNotes || []),
+        {
+          id: `note_${Date.now()}`,
+          fromUserId: user.id,
+          fromUserName: user.displayName,
+          message: text,
+          createdAt: this.getSimulatedTime().toISOString(),
+        },
+      ],
+    }));
+
+    const allNotifs: AppNotification[] = JSON.parse(this.getItem(STORAGE_KEYS.NOTIFICATIONS) || '[]');
+    allNotifs.push({
+      id: `notif_${Date.now()}_thank_you`,
+      userId: target.ownerId,
+      type: 'thank_you',
+      title: 'You received a thank-you note',
+      message: `${user.displayName} thanked you for "${target.listingTitle}".`,
+      link: '/me',
+      read: false,
+      createdAt: this.getSimulatedTime().toISOString(),
+    });
+    this.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(allNotifs));
+
+    return target;
   }
 
   async joinSociety(data: JoinSocietyInput): Promise<User> {
@@ -392,7 +456,7 @@ export class MockSidekitService implements ISidekitService {
     const shops = await this.getExternalShops();
     const user = await this.getCurrentUser();
 
-    return buildPlanOptionsMatrix(plan, listings, shops, { requesterTower: user.tower, newOnly });
+    return buildPlanOptionsMatrix(plan, listings, shops, { requesterTower: user.tower, requesterId: user.id, newOnly });
   }
 
   async registerDemand(itemKey: string, itemName: string): Promise<{ registered: boolean; alreadyRegistered: boolean }> {
@@ -420,11 +484,16 @@ export class MockSidekitService implements ISidekitService {
   async searchListings(filters?: ListingSearchFilters): Promise<Listing[]> {
     let listings: Listing[] = JSON.parse(this.getItem(STORAGE_KEYS.LISTINGS) || '[]');
 
-    // Hidden listings never appear; closed ones only for their owner (My Listings)
     const currentId = this.getItem(STORAGE_KEYS.CURRENT_USER_ID) || 'usr_rishi';
-    listings = listings.filter(
-      (l) => l.moderationStatus !== 'hidden_by_admin' && (l.status !== 'closed' || l.ownerId === currentId)
-    );
+    if (filters?.ownerId) {
+      // Owners see all of their own listings (including closed and hidden) in My Listings
+      const ownerId = filters.ownerId;
+      listings = listings.filter(
+        (l) => l.ownerId === ownerId && (ownerId === currentId || (l.status !== 'closed' && l.moderationStatus !== 'hidden_by_admin'))
+      );
+    } else {
+      listings = listings.filter((l) => l.moderationStatus !== 'hidden_by_admin' && l.status !== 'closed');
+    }
 
     if (!filters) return listings;
 
@@ -484,7 +553,8 @@ export class MockSidekitService implements ISidekitService {
       reportsCount: 0,
       pickupNote: data.pickupNote,
       comfortRules: data.comfortRules,
-      photos: data.photos && data.photos.length ? data.photos : ['https://images.unsplash.com/photo-1504148455328-c376907d081c?w=500'],
+      photos: data.photos || [],
+      isSample: false,
       ownerDisplayName: user.displayName,
       ownerTower: user.tower,
       createdAt: this.getSimulatedTime().toISOString(),
@@ -614,17 +684,8 @@ export class MockSidekitService implements ISidekitService {
       throw new Error('You already have a pending or active request for this item.');
     }
 
-    // Price math
-    let totalPrice = 0;
-    if (data.kind === 'rent' && listing.price) {
-      // Days calculation
-      const days = data.neededFrom && data.neededTo
-        ? Math.max(1, Math.round((new Date(data.neededTo).getTime() - new Date(data.neededFrom).getTime()) / (3600 * 24 * 1000)))
-        : 1;
-      totalPrice = listing.price * days * data.requestedQuantity;
-    } else if (data.kind === 'buy' && listing.price) {
-      totalPrice = listing.price * data.requestedQuantity;
-    }
+    const total = computeRequestTotal(listing.price, data.kind, data.requestedQuantity, data.neededFrom, data.neededTo);
+    const totalPrice = total === null ? undefined : total;
 
     const owner = await this.getUserById(listing.ownerId);
 
@@ -832,6 +893,9 @@ export class MockSidekitService implements ISidekitService {
     if (thankYouNote) {
       target.thankYouNote = thankYouNote;
     }
+
+    this.setItem(STORAGE_KEYS.REQUESTS, JSON.stringify(requests));
+    await this.updateUser(target.ownerId, (owner) => ({ ...owner, itemsSharedCount: (owner.itemsSharedCount || 0) + 1 }));
 
     // If it was a sell_used buy request, close listing (FIX-REQ-06)
     if (target.kind === 'buy') {

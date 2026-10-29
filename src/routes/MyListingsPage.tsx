@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Edit, Pause, Play, X, Package } from 'lucide-react';
+import { Plus, Edit, Pause, Play, X } from 'lucide-react';
 import { Listing } from '@sidekit/shared';
 import { sidekitService } from '../services';
 import { SampleBadge } from '../components/shared/SampleBadge';
 import { listingPriceLabel } from '../components/shared/listingPrice';
+import { ItemThumb } from '../components/brand/itemIcons';
+import { BrandLoader, EmptyState } from '../components/brand/BrandStates';
 import { useAuth } from '../context/AuthContext';
 
 const STATUS_STYLES: Record<string, string> = {
@@ -22,25 +24,29 @@ export const MyListingsPage: React.FC = () => {
   const fetchMyListings = async () => {
     setIsLoading(true);
     try {
-      const all = await sidekitService.searchListings();
-      setListings(all.filter((l) => l.ownerId === currentUser?.id));
+      if (!currentUser) return;
+      setListings(await sidekitService.searchListings({ ownerId: currentUser.id }));
     } catch {}
     setIsLoading(false);
   };
 
   useEffect(() => { fetchMyListings(); }, [currentUser]);
 
+  const [actionError, setActionError] = useState('');
+
   const togglePause = async (l: Listing) => {
+    setActionError('');
     try {
       await sidekitService.setListingStatus(l.id, l.status === 'active' ? 'paused' : 'active');
       fetchMyListings();
-    } catch {}
+    } catch (err: any) { setActionError(err?.message || 'Could not update the listing.'); }
   };
 
   const closeListing = async (id: string) => {
     if (!window.confirm('Close this listing? It will be hidden from search.')) return;
+    setActionError('');
     try { await sidekitService.setListingStatus(id, 'closed'); fetchMyListings(); }
-    catch (err: any) { alert(err.message); }
+    catch (err: any) { setActionError(err?.message || 'Could not close the listing.'); }
   };
 
   const counts = { all: listings.length, active: listings.filter(l => l.status === 'active').length, paused: listings.filter(l => l.status === 'paused').length, closed: listings.filter(l => l.status === 'closed').length };
@@ -54,7 +60,7 @@ export const MyListingsPage: React.FC = () => {
           <p className="text-xs text-ink-muted mt-0.5">Items you've shared with the community.</p>
         </div>
         <Link to="/my/listings/new"
-          className="flex items-center gap-1.5 px-4 py-2 bg-evergreen hover:bg-evergreen-dark text-white rounded-xl text-xs font-semibold">
+          className="flex items-center gap-1.5 px-4 py-2 bg-brand hover:bg-brand-dark text-white rounded-xl text-xs font-semibold">
           <Plus className="w-3.5 h-3.5" />
           New Listing
         </Link>
@@ -72,23 +78,31 @@ export const MyListingsPage: React.FC = () => {
         ))}
       </div>
 
+      {actionError && (
+        <p role="alert" className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">{actionError}</p>
+      )}
+
       {isLoading ? (
-        <div className="py-16 text-center text-sm text-ink-muted">Loading listings...</div>
+        <BrandLoader label="Loading listings…" />
       ) : filtered.length === 0 ? (
-        <div className="py-16 text-center bg-white rounded-2xl border border-surface-border space-y-3">
-          <Package className="w-8 h-8 text-ink-muted mx-auto" />
-          <p className="text-sm font-semibold text-ink">No {tab !== 'all' ? tab : ''} listings</p>
-          <Link to="/my/listings/new" className="inline-block px-4 py-2 bg-evergreen text-white rounded-xl text-xs font-semibold">
-            List an Item
-          </Link>
+        <div className="bg-surface rounded-2xl border border-surface-border">
+          <EmptyState
+            illustration="no-listings"
+            title={`No ${tab !== 'all' ? tab + ' ' : ''}listings`}
+            description="Share a tool you rarely use and help a neighbour finish their task."
+            action={
+              <Link to="/my/listings/new" className="inline-block px-4 py-2 bg-brand text-white rounded-xl text-xs font-semibold">
+                List an Item
+              </Link>
+            }
+          />
         </div>
       ) : (
         <div className="space-y-2">
           {filtered.map((l) => (
             <div key={l.id}
-              className="bg-white rounded-xl border border-surface-border p-4 flex flex-col sm:flex-row sm:items-center gap-4">
-              <img src={l.photos[0]} alt={l.title}
-                className="w-14 h-14 rounded-xl object-cover border border-surface-border shrink-0" />
+              className="bg-surface rounded-xl border border-surface-border p-4 flex flex-col sm:flex-row sm:items-center gap-4">
+              <ItemThumb itemKey={l.itemKey} title={l.title} size={56} />
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -97,6 +111,11 @@ export const MyListingsPage: React.FC = () => {
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded border capitalize ${STATUS_STYLES[l.status]}`}>
                     {l.status}
                   </span>
+                  {l.moderationStatus === 'hidden_by_admin' && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200">
+                      Hidden · under review
+                    </span>
+                  )}
                   {l.reportsCount > 0 && (
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
                       {l.reportsCount} report{l.reportsCount > 1 ? 's' : ''}
@@ -109,12 +128,14 @@ export const MyListingsPage: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                <Link to={`/my/listings/${l.id}/edit`}
-                  className="p-2 text-ink-muted hover:text-ink hover:bg-surface-secondary rounded-lg border border-surface-border transition-colors"
-                  title="Edit">
-                  <Edit className="w-3.5 h-3.5" />
-                </Link>
-                {l.status !== 'closed' && (
+                {l.moderationStatus !== 'hidden_by_admin' && (
+                  <Link to={`/my/listings/${l.id}/edit`}
+                    className="p-2 text-ink-muted hover:text-ink hover:bg-surface-secondary rounded-lg border border-surface-border transition-colors"
+                    title="Edit" aria-label={`Edit ${l.title}`}>
+                    <Edit className="w-3.5 h-3.5" />
+                  </Link>
+                )}
+                {l.status !== 'closed' && l.moderationStatus !== 'hidden_by_admin' && (
                   <>
                     <button onClick={() => togglePause(l)}
                       className="p-2 text-ink-muted hover:text-ink hover:bg-surface-secondary rounded-lg border border-surface-border transition-colors"

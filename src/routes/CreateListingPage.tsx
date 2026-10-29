@@ -3,10 +3,11 @@ import { useNavigate, Link } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
 import { ListingCategory, ListingMode, ListingCondition, evaluateItemSafety } from '@sidekit/shared';
 import { sidekitService } from '../services';
+import { ItemThumb } from '../components/brand/itemIcons';
 
 const CATALOG_TEMPLATES = [
   { title: 'Hammer Drill 550W', category: 'diy' as ListingCategory, key: 'drill_machine', mode: 'lend' as ListingMode },
-  { title: 'High-Pressure Washer', category: 'cleaning' as ListingCategory, key: 'pressure_washer', mode: 'rent' as ListingMode, price: 250 },
+  { title: 'High-Pressure Washer', category: 'cleaning' as ListingCategory, key: 'pressure_washer', mode: 'rent' as ListingMode },
   { title: '5-Step Aluminium Ladder', category: 'diy' as ListingCategory, key: 'step_ladder', mode: 'lend' as ListingMode },
   { title: '15m Extension Reel', category: 'diy' as ListingCategory, key: 'extension_cord', mode: 'lend' as ListingMode },
   { title: 'Electric Hedge Trimmer', category: 'gardening' as ListingCategory, key: 'hedge_trimmer', mode: 'lend' as ListingMode },
@@ -25,21 +26,31 @@ export const CreateListingPage: React.FC = () => {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [templateKey, setTemplateKey] = useState<string | null>(null);
+
   const safety = title.trim().length > 0 ? evaluateItemSafety(title) : null;
+  const consumableModeError = safety?.isConsumable && mode !== 'sell_used'
+    ? 'Consumable items can only be listed for sale, not lent or rented.'
+    : null;
 
   const applyTemplate = (t: typeof CATALOG_TEMPLATES[0]) => {
     setTitle(t.title); setCategory(t.category); setMode(t.mode);
-    setPrice(('price' in t && t.price) ? t.price : '');
+    setTemplateKey(t.key);
+    setPrice('');
     setDescription(`${t.title} in good working condition, ready to use.`);
   };
+
+  // Catalog keys make the listing match plan checklists; custom titles get a key derived from the title
+  const itemKey = templateKey ?? title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (safety?.isBlocked) { setError(safety.warning || 'Item blocked.'); return; }
+    if (consumableModeError) { setError(consumableModeError); return; }
     setIsSubmitting(true); setError('');
     try {
       await sidekitService.createListing({
-        itemKey: title.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+        itemKey,
         title: title.trim(), description: description.trim(),
         category, mode,
         price: mode === 'lend' ? null : price === '' ? null : Number(price),
@@ -66,8 +77,14 @@ export const CreateListingPage: React.FC = () => {
         <div className="flex flex-wrap gap-2">
           {CATALOG_TEMPLATES.map((t) => (
             <button key={t.key} type="button" onClick={() => applyTemplate(t)}
-              className="text-xs px-3 py-1.5 bg-surface-secondary border border-surface-border rounded-lg text-ink-muted hover:text-ink hover:border-evergreen/30 transition-colors">
-              + {t.title}
+              aria-pressed={templateKey === t.key}
+              className={`flex items-center gap-1.5 text-xs pl-1.5 pr-3 py-1 border rounded-lg transition-colors focus-ring ${
+                templateKey === t.key
+                  ? 'bg-evergreen-light border-evergreen/40 text-evergreen'
+                  : 'bg-surface-secondary border-surface-border text-ink-muted hover:text-ink hover:border-evergreen/30'
+              }`}>
+              <ItemThumb itemKey={t.key} title={t.title} size={26} />
+              {t.title}
             </button>
           ))}
         </div>
@@ -80,16 +97,26 @@ export const CreateListingPage: React.FC = () => {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-surface-border p-6 space-y-5">
+      <form onSubmit={handleSubmit} className="bg-surface rounded-2xl border border-surface-border p-6 space-y-5">
         <div>
-          <label className="block text-xs font-semibold text-ink mb-1">Title *</label>
-          <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. Bosch Impact Drill GSB 500W"
-            className="w-full px-3 py-2 text-sm bg-surface-secondary border border-surface-border rounded-xl focus-ring" required />
+          <label htmlFor="listing-title" className="block text-xs font-semibold text-ink mb-1">Title *</label>
+          <div className="flex items-center gap-2">
+            <ItemThumb itemKey={itemKey} title={title} size={38} />
+            <input id="listing-title" type="text" value={title}
+              onChange={(e) => { setTitle(e.target.value); if (!e.target.value.trim()) setTemplateKey(null); }}
+              placeholder="e.g. Bosch Impact Drill GSB 500W" maxLength={120}
+              className="flex-1 px-3 py-2 text-sm bg-surface-secondary border border-surface-border rounded-xl focus-ring" required />
+          </div>
           {safety?.isBlocked && (
-            <div className="mt-1.5 flex items-start gap-2 text-xs text-red-700">
-              <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-red-500" />
+            <div role="alert" className="mt-1.5 flex items-start gap-2 text-xs text-red-700">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-red-500" aria-hidden="true" />
               {safety.warning}
+            </div>
+          )}
+          {!safety?.isBlocked && consumableModeError && (
+            <div className="mt-1.5 flex items-start gap-2 text-xs text-amber-700">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" aria-hidden="true" />
+              {consumableModeError}
             </div>
           )}
         </div>
@@ -166,7 +193,7 @@ export const CreateListingPage: React.FC = () => {
             Cancel
           </Link>
           <button type="submit" disabled={isSubmitting || !!safety?.isBlocked}
-            className="px-6 py-2.5 bg-evergreen hover:bg-evergreen-dark text-white rounded-xl font-semibold text-sm transition-colors disabled:opacity-50">
+            className="px-6 py-2.5 bg-brand hover:bg-brand-dark text-white rounded-xl font-semibold text-sm transition-colors disabled:opacity-50">
             {isSubmitting ? 'Publishing...' : 'Publish Listing'}
           </button>
         </div>

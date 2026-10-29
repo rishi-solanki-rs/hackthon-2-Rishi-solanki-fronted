@@ -1,20 +1,93 @@
+@import './styles-palette.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Brand tokens from the Sidekit asset pack (tokens/brand.css), as RGB channels for Tailwind alpha support */
+:root {
+  color-scheme: light;
+  --c-canvas: 247 249 248;
+  --c-surface: 255 255 255;
+  --c-surface-secondary: 240 244 242;
+  --c-surface-border: 229 235 232;
+  --c-ink: 23 35 31;
+  --c-ink-muted: 91 107 102;
+  --c-ink-subtle: 140 155 148;
+  --c-evergreen: 23 107 84;
+  --c-evergreen-light: 232 243 238;
+  --c-evergreen-dark: 17 82 63;
+  --c-brand: 23 107 84;
+  --c-brand-dark: 17 82 63;
+  --c-lime: 220 244 134;
+  --c-lime-subtle: 244 252 227;
+  --c-danger: 180 35 24;
+  --c-info: 29 78 216;
+  --c-used: 126 34 206;
+
+  /* Consumed by the generated brand components (ItemIcon, ItemTile) */
+  --sk-brand-50: #F1FBF7;
+  --sk-brand-150: #C4F7E0;
+  --sk-brand-600: #176B54;
+  --sk-border: #E5EBE8;
+  --sk-icon-tint: var(--sk-brand-150);
+  --sk-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dark {
+  color-scheme: dark;
+  --c-canvas: 11 18 16;
+  --c-surface: 18 27 24;
+  --c-surface-secondary: 26 38 34;
+  --c-surface-border: 39 53 48;
+  --c-ink: 230 238 235;
+  --c-ink-muted: 156 172 166;
+  --c-ink-subtle: 110 126 120;
+  --c-evergreen: 74 196 154;
+  --c-evergreen-light: 20 48 40;
+  --c-evergreen-dark: 110 220 180;
+  --c-brand: 26 122 95;
+  --c-brand-dark: 21 101 78;
+  --c-lime: 220 244 134;
+  --c-lime-subtle: 38 48 20;
+  --c-danger: 200 50 38;
+  --c-info: 37 99 235;
+  --c-used: 147 51 234;
+
+  --sk-brand-50: #14302A;
+  --sk-brand-150: #1F4D3F;
+  --sk-brand-600: #4AC49A;
+  --sk-border: #273530;
+}
 
 @layer base {
   body {
     @apply bg-canvas text-ink font-sans antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    transition: background-color 160ms var(--sk-ease), color 160ms var(--sk-ease);
   }
   * {
     @apply box-border;
+  }
+  input, textarea, select {
+    @apply text-ink;
+  }
+  ::placeholder {
+    @apply text-ink-subtle;
   }
 }
 
 @layer utilities {
   .focus-ring {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-evergreen focus-visible:ring-offset-1;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-evergreen focus-visible:ring-offset-1 focus-visible:ring-offset-canvas;
+  }
+
+  /* Brand illustrations are drawn for light backgrounds; soften them on dark */
+  .brand-art {
+    @apply select-none;
+  }
+  .dark .brand-art {
+    filter: brightness(0.88) saturate(0.9);
   }
 
   /* Fade + zoom in animation */
@@ -35,8 +108,13 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .animate-in, .animate-spin { animation: none; }
+  body { transition: none; }
+}
+
 /* Subtle scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #D1DCD6; border-radius: 9999px; }
-::-webkit-scrollbar-thumb:hover { background: #A8B8B0; }
+::-webkit-scrollbar-thumb { background: rgb(var(--c-surface-border)); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--c-ink-subtle)); }

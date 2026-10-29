@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldAlert } from 'lucide-react';
+import { FeatureIcon } from '../brand/sidekit-icons';
 import { TaskSafetyGate } from '@sidekit/shared';
 
 interface SafetyGateNoticeProps {
@@ -9,7 +9,7 @@ interface SafetyGateNoticeProps {
 
 export const SafetyGateNotice: React.FC<SafetyGateNoticeProps> = ({ gate, suppressedItemNames }) => (
   <div role="alert" className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-2xl text-red-800">
-    <ShieldAlert className="w-5 h-5 text-red-600 shrink-0 mt-0.5" aria-hidden="true" />
+    <FeatureIcon name="safety" size={28} color="currentColor" className="shrink-0 text-red-600" />
     <div className="space-y-1">
       <p className="text-sm font-bold">{gate.title}</p>
       <p className="text-xs leading-relaxed">{gate.message}</p>

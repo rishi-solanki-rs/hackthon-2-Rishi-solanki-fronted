@@ -5,6 +5,8 @@ import { Listing, ListingCategory, ListingMode } from '@sidekit/shared';
 import { sidekitService } from '../services';
 import { SampleBadge } from '../components/shared/SampleBadge';
 import { listingPriceLabel } from '../components/shared/listingPrice';
+import { ItemHero } from '../components/brand/itemIcons';
+import { EmptyState, BrandLoader } from '../components/brand/BrandStates';
 
 const CATEGORIES = [
   { id: 'all', label: 'All' },
@@ -64,7 +66,7 @@ export const BrowseCatalogPage: React.FC = () => {
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-xl font-bold text-ink">Community Catalog</h1>
         <Link to="/my/listings/new"
-          className="flex items-center gap-1.5 px-4 py-2 bg-evergreen hover:bg-evergreen-dark text-white rounded-xl text-xs font-semibold">
+          className="flex items-center gap-1.5 px-4 py-2 bg-brand hover:bg-brand-dark text-white rounded-xl text-xs font-semibold">
           <Plus className="w-3.5 h-3.5" />
           List Item
         </Link>
@@ -80,7 +82,7 @@ export const BrowseCatalogPage: React.FC = () => {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search tools, models, categories..."
-              className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-surface-border rounded-xl focus-ring"
+              className="w-full pl-9 pr-3 py-2 text-sm bg-surface border border-surface-border rounded-xl focus-ring"
             />
           </div>
           <button type="submit"
@@ -96,7 +98,7 @@ export const BrowseCatalogPage: React.FC = () => {
               <button key={c.id} onClick={() => setCategory(c.id)}
                 className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors border ${
                   category === c.id
-                    ? 'bg-ink text-white border-ink'
+                    ? 'bg-ink text-canvas border-ink'
                     : 'bg-surface border-surface-border text-ink-muted hover:text-ink'
                 }`}>
                 {c.label}
@@ -109,7 +111,7 @@ export const BrowseCatalogPage: React.FC = () => {
               <button key={m.id} onClick={() => setMode(m.id)}
                 className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors border ${
                   mode === m.id
-                    ? 'bg-evergreen text-white border-evergreen'
+                    ? 'bg-brand text-white border-evergreen'
                     : 'bg-surface border-surface-border text-ink-muted hover:text-ink'
                 }`}>
                 {m.label}
@@ -126,33 +128,41 @@ export const BrowseCatalogPage: React.FC = () => {
 
       {/* Grid */}
       {isLoading ? (
-        <div className="py-16 text-center text-sm text-ink-muted">Loading catalog...</div>
+        <BrandLoader label="Loading catalog…" />
       ) : loadError ? (
-        <div role="alert" className="py-16 text-center space-y-3">
-          <p className="text-sm text-red-700">{loadError}</p>
-          <button onClick={() => fetchListings()} className="text-xs text-evergreen font-semibold hover:underline">
-            Try again
-          </button>
+        <div role="alert">
+          <EmptyState
+            illustration="offline"
+            title="Catalog unavailable"
+            description={loadError}
+            action={
+              <button onClick={() => fetchListings()} className="text-xs text-evergreen font-semibold hover:underline">
+                Try again
+              </button>
+            }
+          />
         </div>
       ) : listings.length === 0 ? (
-        <div className="py-16 text-center space-y-3">
-          <p className="text-sm text-ink-muted">No listings match your filters.</p>
-          <button onClick={() => { setQuery(''); setCategory('all'); setMode('all'); setOnlyAvailable(false); }}
-            className="text-xs text-evergreen font-semibold hover:underline">
-            Clear filters
-          </button>
-        </div>
+        <EmptyState
+          illustration="no-results"
+          title="No listings match your filters"
+          action={
+            <button onClick={() => { setQuery(''); setCategory('all'); setMode('all'); setOnlyAvailable(false); }}
+              className="text-xs text-evergreen font-semibold hover:underline">
+              Clear filters
+            </button>
+          }
+        />
       ) : (
         <>
           <p className="text-xs text-ink-muted">{listings.length} item{listings.length !== 1 ? 's' : ''} found</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {listings.map((l) => (
               <Link key={l.id} to={`/listing/${l.id}`}
-                className="group bg-white rounded-2xl border border-surface-border overflow-hidden hover:border-evergreen/30 hover:shadow-sm transition-all flex flex-col">
-                <div className="aspect-[4/3] bg-surface-secondary relative overflow-hidden">
-                  <img src={l.photos[0]} alt={l.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    loading="lazy" />
+                className="group bg-surface rounded-2xl border border-surface-border overflow-hidden hover:border-evergreen/30 hover:shadow-sm transition-all flex flex-col">
+                <div className="aspect-[4/3] relative overflow-hidden">
+                  <ItemHero itemKey={l.itemKey} title={l.title} iconSize={64}
+                    className="w-full h-full group-hover:scale-105 transition-transform duration-300" />
                   <span className={`absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded border ${modeBadge(l.mode)}`}>
                     {l.mode === 'lend' ? 'FREE' : l.mode === 'rent' ? 'RENT' : 'SALE'}
                   </span>
