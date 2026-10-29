@@ -22,6 +22,27 @@ const MODE_META: Record<string, { label: string; icon: FeatureIconName; cls: str
   rent: { label: 'Rent', icon: 'rent', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
   sell_used: { label: 'Buy Used', icon: 'buy-used', cls: 'bg-purple-50 text-purple-700 border-purple-200' },
   buy_new: { label: 'Buy New', icon: 'buy-new', cls: 'bg-slate-50 text-slate-600 border-slate-200' },
+  repair: { label: 'Repair', icon: 'repair', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+};
+
+type MethodFilter = 'all' | 'lend' | 'rent' | 'sell_used' | 'buy_new' | 'repair';
+
+const METHOD_FILTERS: Array<{ id: MethodFilter; label: string }> = [
+  { id: 'all', label: 'All' },
+  { id: 'lend', label: 'Borrow' },
+  { id: 'rent', label: 'Rent' },
+  { id: 'sell_used', label: 'Buy used' },
+  { id: 'buy_new', label: 'Buy new' },
+  { id: 'repair', label: 'Repair' },
+];
+
+const RECOMMENDATION_LABEL: Record<string, string> = {
+  borrow: 'Borrow it',
+  rent: 'Rent it',
+  buy_used: 'Buy second-hand',
+  buy_new: 'Buy new',
+  repair: 'Repair yours',
+  notify: 'Not listed yet',
 };
 
 const ACTIVE_STATUSES = new Set(['pending', 'accepted', 'handed_over']);
@@ -47,6 +68,7 @@ export const PlanOptionsPage: React.FC = () => {
   const [bookingLength, setBookingLength] = useState(1);
   const [activeRequests, setActiveRequests] = useState<Map<string, Request>>(new Map());
   const [demandState, setDemandState] = useState<Record<string, 'saving' | 'done' | 'error'>>({});
+  const [methodFilter, setMethodFilter] = useState<MethodFilter>('all');
 
   // Booking modal
   const [selectedOption, setSelectedOption] = useState<RankedOption | null>(null);
@@ -198,23 +220,65 @@ export const PlanOptionsPage: React.FC = () => {
 
       {matrix.safetyGate && <SafetyGateNotice gate={matrix.safetyGate} suppressedItemNames={matrix.suppressedItemNames} />}
 
+      {/* Method filter */}
+      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Show options by method">
+        {METHOD_FILTERS.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            onClick={() => setMethodFilter(f.id)}
+            aria-pressed={methodFilter === f.id}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-colors ${
+              methodFilter === f.id ? 'bg-ink text-canvas border-ink' : 'bg-surface border-surface-border text-ink-muted hover:text-ink'
+            }`}
+          >
+            {f.id !== 'all' && <FeatureIcon name={MODE_META[f.id].icon} size={14} duotone={false} color="currentColor" />}
+            {f.label}
+          </button>
+        ))}
+        <span className="text-[11px] text-ink-subtle ml-auto">
+          Prices for {matrix.durationDays ?? 1} day{(matrix.durationDays ?? 1) !== 1 ? 's' : ''} · SAMPLE prices
+        </span>
+      </div>
+
       {/* Items */}
-      {matrix.items.map((section) => (
-        <section key={section.itemKey} className="space-y-3" aria-label={section.itemName}>
-          <div className="flex items-center justify-between gap-3">
+      {matrix.items.map((section) => {
+        const rec = section.recommendation;
+        const visibleOptions =
+          methodFilter === 'all'
+            ? section.rankedOptions
+            : methodFilter === 'repair'
+            ? section.repairOptions || []
+            : section.rankedOptions.filter((o) => o.mode === methodFilter);
+        return (
+        <section key={section.itemKey} className="space-y-3 pt-2 border-t border-surface-border first-of-type:border-t-0" aria-label={section.itemName}>
+          <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <ItemThumb itemKey={section.itemKey} title={section.itemName} category={section.category} imageUrl={section.imageUrl} size={40} />
-              <h2 className="text-sm font-bold text-ink flex items-center gap-2 flex-wrap">
-                {section.itemName}
-                {section.isConsumable && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-semibold">
-                    Consumable · buy only
-                  </span>
-                )}
-              </h2>
+              <ItemThumb itemKey={section.itemKey} title={section.itemName} category={section.category} imageUrl={section.imageUrl} size={64} />
+              <div className="min-w-0">
+                <h2 className="text-sm font-bold text-ink flex items-center gap-2 flex-wrap">
+                  {section.itemName}
+                  {section.isConsumable && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-semibold">
+                      Consumable · buy only
+                    </span>
+                  )}
+                </h2>
+                <p className="text-xs text-ink-muted mt-0.5">
+                  Need {section.missingQuantity} unit{section.missingQuantity !== 1 ? 's' : ''} · {section.rankedOptions.length} option{section.rankedOptions.length !== 1 ? 's' : ''}
+                </p>
+              </div>
             </div>
-            <span className="text-xs text-ink-muted shrink-0">Need {section.missingQuantity} unit{section.missingQuantity !== 1 ? 's' : ''}</span>
           </div>
+
+          {rec && (
+            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-lime-subtle border border-lime/60 text-xs text-ink">
+              <FeatureIcon name="sparkle" size={18} className="shrink-0" />
+              <span>
+                <strong className="font-bold">Recommended: {RECOMMENDATION_LABEL[rec.method]}.</strong> {rec.reason}
+              </span>
+            </div>
+          )}
 
           {section.requesterListsItem && (
             <div className="flex items-start gap-2 p-3 rounded-xl border border-evergreen/20 bg-evergreen-light text-xs text-ink">
@@ -226,9 +290,16 @@ export const PlanOptionsPage: React.FC = () => {
             </div>
           )}
 
-          {section.rankedOptions.length === 0 ? (
+          {section.rankedOptions.length > 0 && visibleOptions.length === 0 && (
+            <p className="text-xs text-ink-muted p-3 rounded-xl bg-surface-secondary border border-surface-border">
+              No {METHOD_FILTERS.find((f) => f.id === methodFilter)?.label.toLowerCase()} option for this item.{' '}
+              <button type="button" className="font-semibold text-evergreen hover:underline" onClick={() => setMethodFilter('all')}>Show all</button>
+            </p>
+          )}
+
+          {section.rankedOptions.length === 0 && methodFilter !== 'repair' ? (
             <div className="p-4 bg-surface-secondary rounded-xl border border-surface-border flex flex-col sm:flex-row sm:items-center gap-3 text-sm text-ink-muted">
-              <span className="flex-1">No other listings yet. Get notified when a neighbour lists one.</span>
+              <span className="flex-1">No neighbour or shop lists this yet. Get notified when someone does.</span>
               {demandState[section.itemKey] === 'done' ? (
                 <span className="text-xs font-semibold text-evergreen flex items-center gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" /> You'll be notified
@@ -247,16 +318,19 @@ export const PlanOptionsPage: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-2">
-              {section.rankedOptions.map((opt) => {
+              {visibleOptions.map((opt) => {
                 const isShop = opt.source === 'external_shop';
                 const isFree = opt.tier === 'tier1_free';
                 const meta = MODE_META[opt.mode];
                 const existing = opt.listingId ? activeRequests.get(opt.listingId) : undefined;
+                const isRecommended = rec?.optionId === opt.id;
 
                 return (
                   <div
                     key={opt.id}
                     className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                      isRecommended ? 'ring-2 ring-evergreen/40 ' : ''
+                    }${
                       isFree
                         ? 'bg-emerald-50/50 border-emerald-200/60'
                         : opt.tier === 'tier2b_demoted'
@@ -270,6 +344,9 @@ export const PlanOptionsPage: React.FC = () => {
                           {meta && <FeatureIcon name={meta.icon} size={13} duotone={false} color="currentColor" />}
                           {meta?.label || opt.mode}
                         </span>
+                        {isRecommended && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-brand text-white uppercase tracking-wider">Recommended</span>
+                        )}
                         {opt.isSameTower && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-lime/80 text-[#17231F] font-semibold">Same Tower</span>
                         )}
@@ -322,7 +399,7 @@ export const PlanOptionsPage: React.FC = () => {
                           title={opt.shopAddress}
                         >
                           <Store className="w-3.5 h-3.5" aria-hidden="true" />
-                          <span>Visit store · info only</span>
+                          <span>{opt.mode === 'repair' ? 'Repair shop' : 'Visit store'} · info only</span>
                         </div>
                       ) : existing ? (
                         <Link
