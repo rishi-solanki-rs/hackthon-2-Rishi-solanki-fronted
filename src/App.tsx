@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
+import { PwaInstallPrompt } from './components/pwa/PwaInstallPrompt';
 
 // 18 Canonical Routes
 import { LandingPage } from './routes/LandingPage';
@@ -97,6 +98,7 @@ export const App: React.FC = () => {
             </Routes>
           </main>
           <Footer />
+          <PwaInstallPrompt />
         </div>
       </AuthProvider>
       </ThemeProvider>

@@ -118,7 +118,7 @@ export const ListingDetailPage: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Photo */}
         <div className="relative rounded-2xl overflow-hidden border border-surface-border aspect-[4/3]">
-          <ItemHero itemKey={listing.itemKey} title={listing.title} iconSize={120} className="w-full h-full" />
+          <ItemHero itemKey={listing.itemKey} title={listing.title} category={listing.category} imageUrl={listing.photos?.[0]} iconSize={120} className="w-full h-full" />
           <div className="absolute top-3 left-3 flex gap-2">
             {listing.isSample && <SampleBadge />}
             <span className={`text-[11px] font-bold px-2 py-0.5 rounded uppercase tracking-wide ${badge.cls}`}>

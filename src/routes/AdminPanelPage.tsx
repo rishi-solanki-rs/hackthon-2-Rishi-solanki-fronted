@@ -121,7 +121,7 @@ export const AdminPanelPage: React.FC = () => {
           <div className="divide-y divide-surface-border">
             {allReported.map((l) => (
               <div key={l.id} className="p-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                <ItemThumb itemKey={l.itemKey} title={l.title} size={44} />
+                <ItemThumb itemKey={l.itemKey} title={l.title} category={l.category} imageUrl={l.photos?.[0]} size={44} />
                 <div className="flex-1 min-w-0 space-y-1.5">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-sm font-bold text-ink">{l.title}</h3>

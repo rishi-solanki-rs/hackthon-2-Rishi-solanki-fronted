@@ -161,7 +161,7 @@ export const BrowseCatalogPage: React.FC = () => {
               <Link key={l.id} to={`/listing/${l.id}`}
                 className="group bg-surface rounded-2xl border border-surface-border overflow-hidden hover:border-evergreen/30 hover:shadow-sm transition-all flex flex-col">
                 <div className="aspect-[4/3] relative overflow-hidden">
-                  <ItemHero itemKey={l.itemKey} title={l.title} iconSize={64}
+                  <ItemHero itemKey={l.itemKey} title={l.title} category={l.category} imageUrl={l.photos?.[0]} iconSize={64}
                     className="w-full h-full group-hover:scale-105 transition-transform duration-300" />
                   <span className={`absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded border ${modeBadge(l.mode)}`}>
                     {l.mode === 'lend' ? 'FREE' : l.mode === 'rent' ? 'RENT' : 'SALE'}

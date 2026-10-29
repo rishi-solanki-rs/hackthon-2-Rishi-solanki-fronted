@@ -178,6 +178,13 @@ export class HttpSidekitService implements ISidekitService {
     return this.request<PlanOptionsMatrix>(`/plans/${id}/options?newOnly=${newOnly}`);
   }
 
+  async suggestPlanItems(planId: string, prompt = ''): Promise<{ items: PlanChecklistItem[]; source: 'gemini' | 'template' }> {
+    return this.request<{ items: PlanChecklistItem[]; source: 'gemini' | 'template' }>(`/plans/${planId}/suggest`, {
+      method: 'POST',
+      body: JSON.stringify({ prompt }),
+    });
+  }
+
   async registerDemand(itemKey: string, itemName: string): Promise<{ registered: boolean; alreadyRegistered: boolean }> {
     return this.request<{ registered: boolean; alreadyRegistered: boolean }>('/demand', {
       method: 'POST',

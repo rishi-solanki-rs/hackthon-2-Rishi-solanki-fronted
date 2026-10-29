@@ -102,7 +102,7 @@ export const MyListingsPage: React.FC = () => {
           {filtered.map((l) => (
             <div key={l.id}
               className="bg-surface rounded-xl border border-surface-border p-4 flex flex-col sm:flex-row sm:items-center gap-4">
-              <ItemThumb itemKey={l.itemKey} title={l.title} size={56} />
+              <ItemThumb itemKey={l.itemKey} title={l.title} category={l.category} imageUrl={l.photos?.[0]} size={56} />
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">

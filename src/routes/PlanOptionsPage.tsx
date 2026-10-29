@@ -203,7 +203,7 @@ export const PlanOptionsPage: React.FC = () => {
         <section key={section.itemKey} className="space-y-3" aria-label={section.itemName}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <ItemThumb itemKey={section.itemKey} title={section.itemName} size={40} />
+              <ItemThumb itemKey={section.itemKey} title={section.itemName} category={section.category} imageUrl={section.imageUrl} size={40} />
               <h2 className="text-sm font-bold text-ink flex items-center gap-2 flex-wrap">
                 {section.itemName}
                 {section.isConsumable && (

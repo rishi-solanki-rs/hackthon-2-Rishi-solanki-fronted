@@ -35,6 +35,8 @@ import {
   computeSocietyImpact,
   computeUserProfile,
   computeRequestTotal,
+  buildTemplateChecklist,
+  suggestMoreItems,
   DemandEntry,
   UserProfileSummary,
 } from '@sidekit/shared';
@@ -264,147 +266,7 @@ export class MockSidekitService implements ISidekitService {
   // --- Plans & Interpretation ---
   async createPlan(taskDescription: string, clarificationAnswers?: Record<string, string>): Promise<Plan> {
     const user = await this.getCurrentUser();
-    const descLower = taskDescription.toLowerCase();
-
-    let items: PlanChecklistItem[] = [];
-    let category = 'general';
-
-    if (descLower.includes('clean') || descLower.includes('balcony') || descLower.includes('sofa') || descLower.includes('wash')) {
-      category = 'cleaning';
-      items = [
-        {
-          id: `item_${Date.now()}_1`,
-          itemKey: 'pressure_washer',
-          name: 'Pressure Washer',
-          neededQuantity: 1,
-          ownedQuantity: 0,
-          missingQuantity: 1,
-          reason: 'For high-pressure blasting of exterior balcony floor and grime.',
-          isConsumable: false,
-          safetyClass: 'none',
-          source: 'template',
-        },
-        {
-          id: `item_${Date.now()}_2`,
-          itemKey: 'extension_cord',
-          name: 'Heavy Extension Reel (15m)',
-          neededQuantity: 1,
-          ownedQuantity: 0,
-          missingQuantity: 1,
-          reason: 'Required to reach outdoor balcony from indoor 16A socket.',
-          isConsumable: false,
-          safetyClass: 'none',
-          source: 'template',
-        },
-        {
-          id: `item_${Date.now()}_3`,
-          itemKey: 'microfiber_cloth',
-          name: 'Microfiber Cleaning Cloths (3-Pack)',
-          neededQuantity: 3,
-          ownedQuantity: 0,
-          missingQuantity: 3,
-          reason: 'Lint-free wiping of glass railings and windows.',
-          isConsumable: true,
-          safetyClass: 'consumable',
-          source: 'template',
-        },
-      ];
-    } else if (descLower.includes('drill') || descLower.includes('mount') || descLower.includes('frame') || descLower.includes('shelf') || descLower.includes('curtain')) {
-      category = 'diy';
-      items = [
-        {
-          id: `item_${Date.now()}_1`,
-          itemKey: 'drill_machine',
-          name: 'Hammer Drill Machine',
-          neededQuantity: 1,
-          ownedQuantity: 0,
-          missingQuantity: 1,
-          reason: 'Needed for drilling into masonry and concrete society walls.',
-          isConsumable: false,
-          safetyClass: 'none',
-          source: 'template',
-        },
-        {
-          id: `item_${Date.now()}_2`,
-          itemKey: 'spirit_level',
-          name: 'Spirit Level',
-          neededQuantity: 1,
-          ownedQuantity: 0,
-          missingQuantity: 1,
-          reason: 'Ensures mounted shelf or picture frame is aligned horizontally.',
-          isConsumable: false,
-          safetyClass: 'none',
-          source: 'template',
-        },
-        {
-          id: `item_${Date.now()}_3`,
-          itemKey: 'step_ladder',
-          name: 'Folding Step Ladder',
-          neededQuantity: 1,
-          ownedQuantity: 0,
-          missingQuantity: 1,
-          reason: 'Safe elevated reach for wall mounting above eye level.',
-          isConsumable: false,
-          safetyClass: 'none',
-          source: 'template',
-        },
-        {
-          id: `item_${Date.now()}_4`,
-          itemKey: 'screws_plugs',
-          name: 'Wall Plugs & Screws Set',
-          neededQuantity: 10,
-          ownedQuantity: 0,
-          missingQuantity: 10,
-          reason: 'Mounting anchors and screws.',
-          isConsumable: true,
-          safetyClass: 'consumable',
-          source: 'template',
-        },
-      ];
-    } else if (descLower.includes('garden') || descLower.includes('hedge') || descLower.includes('plant') || descLower.includes('lawn')) {
-      category = 'gardening';
-      items = [
-        {
-          id: `item_${Date.now()}_1`,
-          itemKey: 'hedge_trimmer',
-          name: 'Electric Hedge Trimmer',
-          neededQuantity: 1,
-          ownedQuantity: 0,
-          missingQuantity: 1,
-          reason: 'Neat trimming of balcony shrubs and overgrown bushes.',
-          isConsumable: false,
-          safetyClass: 'none',
-          source: 'template',
-        },
-        {
-          id: `item_${Date.now()}_2`,
-          itemKey: 'extension_cord',
-          name: 'Outdoor Extension Cord',
-          neededQuantity: 1,
-          ownedQuantity: 0,
-          missingQuantity: 1,
-          reason: 'For powering electrical trimmer outdoors.',
-          isConsumable: false,
-          safetyClass: 'none',
-          source: 'template',
-        },
-      ];
-    } else {
-      items = [
-        {
-          id: `item_${Date.now()}_1`,
-          itemKey: 'tool_kit',
-          name: 'Comprehensive Home Tool Kit',
-          neededQuantity: 1,
-          ownedQuantity: 0,
-          missingQuantity: 1,
-          reason: 'Essential wrenches, screwdrivers and fixtures.',
-          isConsumable: false,
-          safetyClass: 'none',
-          source: 'template',
-        },
-      ];
-    }
+    const { category, items } = buildTemplateChecklist(taskDescription);
 
     const safetyGate = evaluateTaskSafetyGate(taskDescription, clarificationAnswers);
 
@@ -457,6 +319,16 @@ export class MockSidekitService implements ISidekitService {
     const user = await this.getCurrentUser();
 
     return buildPlanOptionsMatrix(plan, listings, shops, { requesterTower: user.tower, requesterId: user.id, newOnly });
+  }
+
+  async suggestPlanItems(planId: string, prompt = ''): Promise<{ items: PlanChecklistItem[]; source: 'gemini' | 'template' }> {
+    const plan = await this.getPlan(planId);
+    if (!plan) throw new Error(`Plan ${planId} not found`);
+    const items = applySafetyGate(
+      suggestMoreItems(plan.taskDescription, prompt, new Set(plan.items.map((i) => i.itemKey)), 10),
+      plan.safetyGate ?? null
+    );
+    return { items, source: 'template' };
   }
 
   async registerDemand(itemKey: string, itemName: string): Promise<{ registered: boolean; alreadyRegistered: boolean }> {

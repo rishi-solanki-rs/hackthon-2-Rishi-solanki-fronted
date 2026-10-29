@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Bell, ChevronDown, Menu, X, Shield, Moon, Sun } from 'lucide-react';
+import { Bell, ChevronDown, Menu, X, Shield, Moon, Sun, Sparkles } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { Logo, LogoMark } from '../brand/sidekit-logo';
 import { sidekitService } from '../../services';
 import { AppNotification } from '@sidekit/shared';
 import { NotificationDrawer } from '../notifications/NotificationDrawer';
+import { WalkthroughModal } from '../walkthrough/WalkthroughModal';
 
 export const Header: React.FC = () => {
   const { currentUser, allUsers, switchPersona } = useAuth();
@@ -16,7 +17,14 @@ export const Header: React.FC = () => {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isPersonaOpen, setIsPersonaOpen] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isTourOpen, setIsTourOpen] = useState(false);
   const personaRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOpenTour = () => setIsTourOpen(true);
+    window.addEventListener('sidekit:open-tour', handleOpenTour);
+    return () => window.removeEventListener('sidekit:open-tour', handleOpenTour);
+  }, []);
 
   useEffect(() => {
     sidekitService.getNotifications()
@@ -83,6 +91,18 @@ export const Header: React.FC = () => {
 
           {/* Right controls */}
           <div className="flex items-center gap-2">
+            {/* Project Walkthrough Tour button */}
+            <button
+              type="button"
+              onClick={() => setIsTourOpen(true)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-evergreen bg-evergreen/10 hover:bg-evergreen/20 transition-colors focus-ring"
+              title="Interactive Walkthrough of Sidekit"
+              aria-label="Start project walkthrough tour"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Tour</span>
+            </button>
+
             <button
               type="button"
               onClick={toggleTheme}
@@ -214,6 +234,17 @@ export const Header: React.FC = () => {
                 {label}
               </Link>
             ))}
+            <button
+              type="button"
+              onClick={() => {
+                setIsMobileOpen(false);
+                setIsTourOpen(true);
+              }}
+              className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-evergreen bg-evergreen/10 hover:bg-evergreen/20 transition-colors"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Project Walkthrough Tour</span>
+            </button>
           </div>
         )}
       </header>
@@ -226,6 +257,11 @@ export const Header: React.FC = () => {
           sidekitService.markNotificationRead(id).catch(() => {});
           setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
         }}
+      />
+
+      <WalkthroughModal
+        isOpen={isTourOpen}
+        onClose={() => setIsTourOpen(false)}
       />
     </>
   );

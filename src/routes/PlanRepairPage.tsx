@@ -175,7 +175,7 @@ export const PlanRepairPage: React.FC = () => {
               <p className="text-xs text-ink-muted mb-2">A reliable refurbished alternative is available in your community:</p>
               <Link to={`/listing/${alternative.id}`}
                 className="flex items-center gap-3 p-3 bg-surface rounded-xl border border-evergreen/30 hover:border-evergreen/50 transition-colors">
-                <ItemThumb itemKey={alternative.itemKey} title={alternative.title} size={40} />
+                <ItemThumb itemKey={alternative.itemKey} title={alternative.title} category={alternative.category} imageUrl={alternative.photos?.[0]} size={40} />
                 <span className="flex-1 min-w-0">
                   <span className="block text-sm font-semibold text-evergreen truncate">{alternative.title}</span>
                   <span className="flex items-center gap-1.5 text-xs text-ink-muted">{listingPriceLabel(alternative)} · {alternative.ownerDisplayName}{alternative.isSample && <SampleBadge />}</span>

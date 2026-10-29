@@ -1,5 +1,6 @@
 import React from 'react';
 import { ItemIcon, ItemIconName } from './sidekit-icons';
+import { ProductImage } from './ProductImage';
 
 // Sidekit catalog keys (snake_case) → asset-pack icon names. Keys without a matching
 // drawing in the pack fall back to the pack's "package" icon.
@@ -55,33 +56,39 @@ export function resolveItemIconName(itemKey?: string, title?: string): ItemIconN
 interface ItemThumbProps {
   itemKey?: string;
   title?: string;
+  category?: string;
+  imageUrl?: string;
   size?: number;
   className?: string;
 }
 
-/** Rounded tile with the brand item icon; used wherever a listing or checklist item is shown. */
-export const ItemThumb: React.FC<ItemThumbProps> = ({ itemKey, title, size = 48, className = '' }) => (
-  <span
-    className={`inline-flex items-center justify-center shrink-0 rounded-xl border border-surface-border ${className}`}
-    style={{ width: size, height: size, background: 'var(--sk-brand-50)' }}
-    aria-hidden="true"
-  >
-    <ItemIcon name={resolveItemIconName(itemKey, title)} size={Math.round(size * 0.64)} />
+/** Small product photo tile used wherever a listing or checklist item is shown. */
+export const ItemThumb: React.FC<ItemThumbProps> = ({ itemKey, title, category, imageUrl, size = 48, className = '' }) => (
+  <span className={`inline-block shrink-0 ${className}`} style={{ width: size, height: size }}>
+    <ProductImage
+      itemKey={itemKey}
+      name={title}
+      category={category}
+      imageUrl={imageUrl}
+      className="w-full h-full border border-surface-border"
+      rounded={size >= 48 ? 'rounded-xl' : 'rounded-lg'}
+    />
   </span>
 );
 
-/** Large card header art for catalog and listing detail pages. */
-export const ItemHero: React.FC<{ itemKey?: string; title?: string; className?: string; iconSize?: number }> = ({
-  itemKey,
-  title,
-  className = '',
-  iconSize = 72,
-}) => (
-  <div
-    className={`flex items-center justify-center ${className}`}
-    style={{ background: 'var(--sk-brand-50)' }}
-    aria-hidden="true"
-  >
-    <ItemIcon name={resolveItemIconName(itemKey, title)} size={iconSize} />
-  </div>
+/** Large product photo for catalog cards and listing detail pages. */
+export const ItemHero: React.FC<{
+  itemKey?: string;
+  title?: string;
+  category?: string;
+  imageUrl?: string;
+  className?: string;
+  iconSize?: number;
+}> = ({ itemKey, title, category, imageUrl, className = '' }) => (
+  <ProductImage itemKey={itemKey} name={title} category={category} imageUrl={imageUrl} className={className} rounded="" caption />
+);
+
+/** Brand line icon fallback, kept for places that need an icon rather than a photo. */
+export const ItemGlyph: React.FC<{ itemKey?: string; title?: string; size?: number }> = ({ itemKey, title, size = 24 }) => (
+  <ItemIcon name={resolveItemIconName(itemKey, title)} size={size} />
 );

@@ -39,6 +39,7 @@ export interface ISidekitService {
   getPlan(id: string): Promise<Plan | undefined>;
   updatePlanChecklist(id: string, items: PlanChecklistItem[]): Promise<Plan>;
   getPlanOptions(id: string, newOnly?: boolean): Promise<PlanOptionsMatrix>;
+  suggestPlanItems(planId: string, prompt?: string): Promise<{ items: PlanChecklistItem[]; source: 'gemini' | 'template' }>;
   registerDemand(itemKey: string, itemName: string): Promise<{ registered: boolean; alreadyRegistered: boolean }>;
   evaluateRepair(data: RepairEvaluationInput): Promise<RepairEvaluationResult>;
 
