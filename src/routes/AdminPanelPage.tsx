@@ -1,183 +1,140 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Shield,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  RefreshCw,
-  Eye,
-  Sliders,
-  Flag,
-} from 'lucide-react';
-import { AdminQueueData, Listing } from '@sidekit/shared';
+import { Shield, RefreshCw, CheckCircle, AlertTriangle, XCircle, Flag } from 'lucide-react';
+import { AdminQueueData } from '@sidekit/shared';
 import { sidekitService } from '../services';
-import { SampleBadge } from '../components/shared/SampleBadge';
 import { useAuth } from '../context/AuthContext';
 
 export const AdminPanelPage: React.FC = () => {
   const { currentUser } = useAuth();
   const [queue, setQueue] = useState<AdminQueueData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [thresholdRatio, setThresholdRatio] = useState(70);
-  const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [toast, setToast] = useState('');
 
   const fetchQueue = async () => {
-    try {
-      setIsLoading(true);
-      const data = await sidekitService.getAdminQueue();
-      setQueue(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
+    setIsLoading(true);
+    try { setQueue(await sidekitService.getAdminQueue()); } catch {}
+    setIsLoading(false);
   };
 
-  useEffect(() => {
-    fetchQueue();
-  }, []);
+  useEffect(() => { fetchQueue(); }, []);
 
-  const handleModerate = async (listingId: string, action: 'approve' | 'remove') => {
+  // Role guard — hooks must come before this
+  if (currentUser && currentUser.role !== 'admin') {
+    return (
+      <div className="max-w-2xl mx-auto py-20 text-center space-y-4 px-4">
+        <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center mx-auto">
+          <Shield className="w-6 h-6" />
+        </div>
+        <h2 className="text-xl font-bold text-ink">Admin Access Only</h2>
+        <p className="text-sm text-ink-muted max-w-sm mx-auto">
+          Switch to the Estate Office persona to access moderation controls.
+        </p>
+      </div>
+    );
+  }
+
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
+
+  const handleModerate = async (id: string, action: 'approve' | 'remove') => {
     try {
-      await sidekitService.adminModerateListing(listingId, action);
-      setActionNotice(action === 'approve' ? 'Listing approved and restored to catalog.' : 'Listing removed and permanently closed.');
-      setTimeout(() => setActionNotice(null), 3000);
+      await sidekitService.adminModerateListing(id, action);
+      showToast(action === 'approve' ? 'Listing approved and restored.' : 'Listing removed.');
       fetchQueue();
-    } catch (err: any) {
-      alert(err.message || 'Failed to moderate listing.');
-    }
+    } catch (err: any) { alert(err.message); }
   };
 
-  const handleResetData = async () => {
-    if (window.confirm('Reset all demo state back to pristine factory fixtures? All test loans and custom listings will be restored.')) {
-      await sidekitService.resetToFactorySeed();
-      window.location.reload();
-    }
+  const handleReset = async () => {
+    if (!window.confirm('Reset all demo data to factory defaults? This cannot be undone.')) return;
+    await sidekitService.resetToFactorySeed();
+    showToast('Data reset to factory defaults.');
+    setTimeout(() => window.location.reload(), 1000);
   };
+
+  const allReported = [...(queue?.reportedListings || []), ...(queue?.hiddenListings || [])];
 
   return (
-    <div className="max-w-5xl mx-auto py-8 px-4 space-y-8">
+    <div className="max-w-4xl mx-auto py-8 px-4 space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-surface-border">
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-evergreen bg-evergreen-light px-2.5 py-1 rounded-lg mb-1">
+          <div className="flex items-center gap-2 text-xs font-semibold text-evergreen mb-1">
             <Shield className="w-3.5 h-3.5" />
-            <span>Palm Grove Estate Administration Block</span>
+            Admin Panel
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink">
-            Moderation & System Controls
-          </h1>
-          <p className="text-xs text-ink-muted mt-1">
-            Review community reported tools, manage listing approvals, and configure society policies.
-          </p>
+          <h1 className="text-xl font-bold text-ink">Moderation Controls</h1>
+          <p className="text-xs text-ink-muted mt-0.5">Palm Grove Estate Administration</p>
         </div>
-
-        <button
-          type="button"
-          onClick={handleResetData}
-          className="py-2.5 px-4 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-xl border border-rose-200 transition-colors flex items-center gap-2 self-start sm:self-auto shadow-sm"
-        >
-          <RefreshCw className="w-4 h-4" />
-          <span>Reset Sample Data (FIX-ADMIN-02)</span>
+        <button onClick={handleReset}
+          className="flex items-center gap-1.5 px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold transition-colors">
+          <RefreshCw className="w-3.5 h-3.5" />
+          Reset Demo Data
         </button>
       </div>
 
-      {actionNotice && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-2 text-xs text-emerald-800 animate-in fade-in duration-150">
+      {toast && (
+        <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800">
           <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>{actionNotice}</span>
+          {toast}
         </div>
       )}
 
-      {/* System Tuning Settings (FIX-ADMIN-02) */}
-      <div className="p-6 bg-surface rounded-3xl border border-surface-border shadow-sm space-y-4">
-        <h3 className="text-sm font-bold text-ink uppercase tracking-wider flex items-center gap-2">
-          <Sliders className="w-4 h-4 text-evergreen" />
-          <span>Platform Policy Configuration</span>
-        </h3>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs">
-          <div className="space-y-1.5">
-            <label className="font-bold text-ink block">
-              Second-Hand Price Demotion Ratio: <strong>{thresholdRatio}%</strong>
-            </label>
-            <p className="text-ink-muted text-[11px] leading-relaxed">
-              Pre-owned listings priced above this ratio of brand-new retail price are automatically flagged and demoted below new shop options in comparison rankings.
-            </p>
-            <input
-              type="range"
-              min="50"
-              max="90"
-              value={thresholdRatio}
-              onChange={(e) => setThresholdRatio(parseInt(e.target.value))}
-              className="w-full accent-evergreen"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="font-bold text-ink block">
-              Automated Review Flag Threshold: <strong>3 Distinct User Reports</strong>
-            </label>
-            <p className="text-ink-muted text-[11px] leading-relaxed">
-              Listings receiving 3 or more community complaints transition to <code>hidden_by_admin</code> and are hidden from search until reviewed.
-            </p>
-            <div className="p-2 bg-surface-secondary rounded-xl font-mono text-[11px] text-ink-muted">
-              Auto-quarantine: ENABLED
-            </div>
-          </div>
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="p-4 bg-white rounded-2xl border border-surface-border text-center">
+          <div className="text-2xl font-bold text-amber-600">{queue?.reportedListings.length || 0}</div>
+          <div className="text-xs text-ink-muted mt-1">Under Review</div>
+        </div>
+        <div className="p-4 bg-white rounded-2xl border border-surface-border text-center">
+          <div className="text-2xl font-bold text-rose-600">{queue?.hiddenListings.length || 0}</div>
+          <div className="text-xs text-ink-muted mt-1">Hidden</div>
+        </div>
+        <div className="p-4 bg-white rounded-2xl border border-surface-border text-center">
+          <div className="text-2xl font-bold text-ink">{queue?.totalReportsCount || 0}</div>
+          <div className="text-xs text-ink-muted mt-1">Total Reports</div>
         </div>
       </div>
 
-      {/* Reported Listings Queue (FIX-ADMIN-01) */}
-      <div className="bg-surface rounded-3xl border border-surface-border p-6 shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b border-surface-border pb-3">
-          <div className="flex items-center gap-2">
-            <Flag className="w-5 h-5 text-amber-600" />
-            <h2 className="text-base font-bold text-ink">Reported & Under-Review Listings</h2>
-          </div>
-          <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
-            {queue?.reportedListings.length || 0} Flagged
-          </span>
+      {/* Queue */}
+      <div className="bg-white rounded-2xl border border-surface-border overflow-hidden">
+        <div className="flex items-center gap-2 px-5 py-3 border-b border-surface-border bg-surface-secondary/50">
+          <Flag className="w-4 h-4 text-amber-600" />
+          <h2 className="text-sm font-bold text-ink">Flagged Listings</h2>
+          <span className="ml-auto text-xs text-ink-muted">{allReported.length} items</span>
         </div>
 
         {isLoading ? (
-          <div className="py-12 text-center text-xs text-ink-muted">Loading reports queue...</div>
-        ) : !queue || queue.reportedListings.length === 0 ? (
-          <div className="py-12 text-center text-xs text-ink-muted">
-            Zero flagged listings in review queue. The community catalog is clear!
+          <div className="py-12 text-center text-sm text-ink-muted">Loading queue...</div>
+        ) : allReported.length === 0 ? (
+          <div className="py-12 text-center space-y-2">
+            <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto" />
+            <p className="text-sm text-ink-muted">All clear — no flagged listings.</p>
           </div>
         ) : (
           <div className="divide-y divide-surface-border">
-            {queue.reportedListings.map((l) => (
-              <div key={l.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="space-y-1 flex-1">
+            {allReported.map((l) => (
+              <div key={l.id} className="p-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                <div className="flex-1 min-w-0 space-y-1.5">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-bold text-ink">{l.title}</span>
-                    <SampleBadge />
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 uppercase">
-                      {l.reportsCount} Reports
+                    <h3 className="text-sm font-bold text-ink">{l.title}</h3>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${
+                      l.moderationStatus === 'hidden_by_admin'
+                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                        : 'bg-amber-50 text-amber-700 border-amber-200'
+                    }`}>
+                      {l.moderationStatus === 'hidden_by_admin' ? 'Hidden' : `${l.reportsCount} Reports`}
                     </span>
                   </div>
-                  <div className="text-xs text-ink-muted">
-                    Owner: <strong>{l.ownerDisplayName}</strong> ({l.ownerTower}) · Mode: {l.mode} · Price: {l.price ? `₹${l.price}` : '₹0'}
-                  </div>
-                  <p className="text-xs text-ink-muted italic">"{l.description}"</p>
+                  <p className="text-xs text-ink-muted">{l.ownerDisplayName} · {l.ownerTower} · {l.mode}</p>
+                  <p className="text-xs text-ink-subtle line-clamp-1 italic">"{l.description}"</p>
                 </div>
-
                 <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => handleModerate(l.id, 'approve')}
-                    className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold shadow-sm"
-                  >
-                    Approve & Clear Reports
+                  <button onClick={() => handleModerate(l.id, 'approve')}
+                    className="px-3 py-1.5 text-xs font-semibold bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg transition-colors">
+                    Approve
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => handleModerate(l.id, 'remove')}
-                    className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold shadow-sm"
-                  >
-                    Remove Listing
+                  <button onClick={() => handleModerate(l.id, 'remove')}
+                    className="px-3 py-1.5 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition-colors">
+                    Remove
                   </button>
                 </div>
               </div>
@@ -186,44 +143,11 @@ export const AdminPanelPage: React.FC = () => {
         )}
       </div>
 
-      {/* Hidden Listings Queue */}
-      {queue && queue.hiddenListings.length > 0 && (
-        <div className="bg-surface rounded-3xl border border-surface-border p-6 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-surface-border pb-3">
-            <div className="flex items-center gap-2">
-              <XCircle className="w-5 h-5 text-rose-600" />
-              <h2 className="text-base font-bold text-ink">Quarantined / Hidden Listings</h2>
-            </div>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-800 border border-rose-200">
-              {queue.hiddenListings.length} Hidden
-            </span>
-          </div>
-
-          <div className="divide-y divide-surface-border">
-            {queue.hiddenListings.map((l) => (
-              <div key={l.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h4 className="text-sm font-bold text-ink">{l.title}</h4>
-                  <div className="text-xs text-ink-muted">
-                    Quarantined due to exceeding 3 community reports. Hidden from all resident search queries.
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleModerate(l.id, 'approve')}
-                    className="px-3.5 py-1.5 bg-surface-secondary hover:bg-surface-border text-ink rounded-xl text-xs font-semibold border border-surface-border"
-                  >
-                    Reinstate to Active
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Policy info */}
+      <div className="p-4 bg-surface-secondary rounded-2xl border border-surface-border text-xs text-ink-muted space-y-1">
+        <p className="font-semibold text-ink">Auto-moderation policy</p>
+        <p>Listings with 3+ reports are automatically hidden pending review. The 70% price demotion rule is applied deterministically by the ranking engine.</p>
+      </div>
     </div>
   );
 };
-

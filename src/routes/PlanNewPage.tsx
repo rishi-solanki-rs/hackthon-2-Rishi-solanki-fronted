@@ -1,226 +1,216 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import {
-  Sparkles,
-  ArrowRight,
-  Wrench,
-  CheckCircle2,
-  HelpCircle,
-  Laptop,
-  TreePine,
-  Sparkle,
-  Home,
-} from 'lucide-react';
+import { ArrowRight, Sparkles, Wrench, TreePine, Laptop, Droplets, AlertCircle } from 'lucide-react';
 import { sidekitService } from '../services';
 
-export const PlanNewPage: React.FC = () => {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
+const TEMPLATES = [
+  { icon: Droplets, title: 'Balcony Deep Clean', task: 'Balcony deep clean and AC outdoor unit wash' },
+  { icon: Wrench, title: 'Wall Mount / Shelves', task: 'Mount bookshelf and frames on living room wall' },
+  { icon: TreePine, title: 'Garden & Hedges', task: 'Trim balcony hedges and repot garden plants' },
+  { icon: Laptop, title: 'Laptop Diagnosis', task: 'Laptop running slow, evaluate repair vs replacement' },
+];
 
-  const [taskDescription, setTaskDescription] = useState(searchParams.get('task') || '');
-  const [scope, setScope] = useState('Medium (standard flat)');
+const MOUNTING_TASK = /\b(shelf|shelves|mount|mounting|frame|frames|mirror|tv|bracket|hang|hanging|cabinet|curtain rod|wall)\b/i;
+
+const WALL_TYPES = [
+  { value: 'brick', label: 'Brick / concrete' },
+  { value: 'hollow', label: 'Drywall / hollow' },
+  { value: 'wood', label: 'Wooden panel' },
+  { value: 'unsure', label: 'Not sure' },
+];
+
+const SHELF_LOADS = [
+  { value: 'light', label: 'Light (< 5 kg)' },
+  { value: 'medium', label: 'Medium (5–15 kg)' },
+  { value: 'heavy', label: 'Heavy (> 15 kg)' },
+];
+
+export const PlanNewPage: React.FC = () => {
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const [task, setTask] = useState(params.get('task') || '');
+  const [scope, setScope] = useState('Standard flat');
   const [duration, setDuration] = useState('1 day');
-  const [hasPower, setHasPower] = useState('Yes, nearby outlet');
+  const [wallType, setWallType] = useState('');
+  const [shelfLoad, setShelfLoad] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const task = searchParams.get('task');
-    if (task) setTaskDescription(task);
-  }, [searchParams]);
+    const t = params.get('task');
+    if (t) setTask(t);
+  }, [params]);
+
+  const isMountingTask = MOUNTING_TASK.test(task);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!taskDescription.trim()) return;
+    const trimmed = task.trim();
+    if (!trimmed || trimmed.length < 3) return;
 
-    // Check if task is laptop repair
-    const descLower = taskDescription.toLowerCase();
-    if (descLower.includes('laptop') || descLower.includes('pc') || descLower.includes('computer')) {
-      setIsSubmitting(true);
-      try {
-        const plan = await sidekitService.createPlan(taskDescription, { scope, duration, hasPower });
-        navigate(`/plan/${plan.id}/repair`);
-        return;
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setIsSubmitting(false);
-      }
+    setError(null);
+    setIsSubmitting(true);
+
+    const answers: Record<string, string> = { scope, duration };
+    if (isMountingTask) {
+      if (wallType) answers.wall_type = wallType;
+      if (shelfLoad) answers.shelf_load = shelfLoad;
     }
 
     try {
-      setIsSubmitting(true);
-      const plan = await sidekitService.createPlan(taskDescription, { scope, duration, hasPower });
-      navigate(`/plan/${plan.id}`);
-    } catch (err) {
-      console.error(err);
-    } finally {
+      const plan = await sidekitService.createPlan(trimmed, answers);
+      const lower = trimmed.toLowerCase();
+      const isLaptop = lower.includes('laptop') || lower.includes('computer') || lower.includes(' pc ');
+      navigate(isLaptop ? `/plan/${plan.id}/repair` : `/plan/${plan.id}`);
+    } catch (err: any) {
+      setError(err.message || 'Could not create plan. Please try again.');
       setIsSubmitting(false);
     }
   };
 
-  const templates = [
-    {
-      title: 'Balcony Deep Clean',
-      desc: 'High-pressure wash balcony floor, glass railings, and AC outdoor unit',
-      icon: Sparkle,
-      task: 'Balcony deep clean and AC outdoor unit wash',
-    },
-    {
-      title: 'Wall Mount Bookshelves / TV',
-      desc: 'Drill masonry walls, anchor studs, mount heavy brackets and shelves',
-      icon: Wrench,
-      task: 'Mount heavy bookshelf & frame on living room wall',
-    },
-    {
-      title: 'Lawn & Balcony Pruning',
-      desc: 'Hedge trimming, lawn mowing, repotting plants and garden tidy-up',
-      icon: TreePine,
-      task: 'Prune balcony hedge bushes and repot garden plants',
-    },
-    {
-      title: 'Laptop Repair / Upgrade Diagnostics',
-      desc: 'Analyze repair vs replacement economics, battery health, SSD upgrade',
-      icon: Laptop,
-      task: 'Diagnose laptop performance, slow boot, and evaluate repair vs replacement',
-    },
-  ];
-
   return (
-    <div className="max-w-3xl mx-auto py-8 px-4 space-y-8">
-      <div className="space-y-2">
-        <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-evergreen bg-evergreen-light px-2.5 py-1 rounded-lg">
+    <div className="max-w-2xl mx-auto py-10 px-4 space-y-8">
+      {/* Header */}
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2 text-xs font-semibold text-evergreen">
           <Sparkles className="w-3.5 h-3.5" />
-          <span>Intelligent Task Planner</span>
+          <span>AI Task Planner</span>
         </div>
-        <h1 className="text-3xl font-bold tracking-tight text-ink">What are you working on?</h1>
-        <p className="text-sm text-ink-muted leading-relaxed">
-          Sidekit analyzes your project requirements and pulls together a complete checklist of equipment, safety gear, and materials.
-        </p>
+        <h1 className="text-2xl font-bold text-ink">What are you working on?</h1>
+        <p className="text-sm text-ink-muted">Describe your project and we'll build a complete checklist.</p>
       </div>
 
-      {/* Main Task Form */}
-      <form onSubmit={handleSubmit} className="p-6 bg-surface rounded-3xl border border-surface-border shadow-sm space-y-6">
+      {/* Quick templates */}
+      <div className="grid grid-cols-2 gap-2">
+        {TEMPLATES.map(({ icon: Icon, title, task: t }) => (
+          <button
+            key={title}
+            type="button"
+            onClick={() => setTask(t)}
+            className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2.5 group ${
+              task === t
+                ? 'border-evergreen/40 bg-evergreen/5 text-evergreen'
+                : 'border-surface-border bg-surface hover:border-evergreen/20 text-ink'
+            }`}
+            style={{ background: task === t ? 'rgba(23,107,84,0.04)' : undefined }}
+          >
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+              task === t ? 'bg-evergreen/10 text-evergreen' : 'bg-surface-secondary text-ink-muted'
+            }`}>
+              <Icon className="w-4 h-4" />
+            </div>
+            <span className="text-xs font-semibold leading-tight">{title}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Main form */}
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-2">
+          <label className="block text-xs font-semibold text-ink mb-1.5" htmlFor="task-input">
             Describe your project
           </label>
           <textarea
+            id="task-input"
             rows={3}
-            value={taskDescription}
-            onChange={(e) => setTaskDescription(e.target.value)}
-            placeholder="e.g., Mount a new heavy mirror and two wooden floating shelves on concrete wall in bedroom..."
-            className="w-full p-3.5 text-sm bg-surface-secondary border border-surface-border rounded-2xl focus-ring text-ink placeholder:text-ink-subtle"
+            value={task}
+            onChange={(e) => setTask(e.target.value)}
+            placeholder="e.g. Mount a new heavy mirror and two floating shelves on bedroom wall..."
+            className="w-full p-3 text-sm bg-surface border border-surface-border rounded-xl focus-ring text-ink placeholder:text-ink-subtle resize-none"
             required
+            minLength={3}
+            maxLength={500}
           />
-        </div>
-
-        {/* Bounded Clarification Chips */}
-        <div className="space-y-4 pt-2 border-t border-surface-border">
-          <div className="text-xs font-bold text-ink uppercase tracking-wider">
-            Clarify Scope & Constraints (Optional)
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <span className="text-xs text-ink-muted block mb-1.5 font-medium">Job Scope</span>
-              <div className="space-y-1.5">
-                {['Small touchup', 'Medium (standard flat)', 'Extensive renovation'].map((opt) => (
-                  <button
-                    type="button"
-                    key={opt}
-                    onClick={() => setScope(opt)}
-                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors border ${
-                      scope === opt
-                        ? 'bg-evergreen-light border-evergreen/40 text-evergreen-dark font-medium'
-                        : 'bg-surface border-surface-border text-ink hover:bg-surface-secondary'
-                    }`}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <span className="text-xs text-ink-muted block mb-1.5 font-medium">Expected Duration</span>
-              <div className="space-y-1.5">
-                {['A few hours', '1 day', 'Entire weekend'].map((opt) => (
-                  <button
-                    type="button"
-                    key={opt}
-                    onClick={() => setDuration(opt)}
-                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors border ${
-                      duration === opt
-                        ? 'bg-evergreen-light border-evergreen/40 text-evergreen-dark font-medium'
-                        : 'bg-surface border-surface-border text-ink hover:bg-surface-secondary'
-                    }`}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <span className="text-xs text-ink-muted block mb-1.5 font-medium">Power Socket Near Work</span>
-              <div className="space-y-1.5">
-                {['Yes, nearby outlet', 'Need long extension cord'].map((opt) => (
-                  <button
-                    type="button"
-                    key={opt}
-                    onClick={() => setHasPower(opt)}
-                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors border ${
-                      hasPower === opt
-                        ? 'bg-evergreen-light border-evergreen/40 text-evergreen-dark font-medium'
-                        : 'bg-surface border-surface-border text-ink hover:bg-surface-secondary'
-                    }`}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            </div>
+          <div className="flex justify-between mt-1">
+            <span className="text-xs text-ink-subtle">{task.trim().length}/500</span>
           </div>
         </div>
+
+        {/* Compact clarifications */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-ink mb-1" htmlFor="scope">Scope</label>
+            <select
+              id="scope"
+              value={scope}
+              onChange={(e) => setScope(e.target.value)}
+              className="w-full px-3 py-2 text-xs bg-surface border border-surface-border rounded-xl focus-ring text-ink"
+            >
+              <option>Small touchup</option>
+              <option>Standard flat</option>
+              <option>Full renovation</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-ink mb-1" htmlFor="duration">Duration</label>
+            <select
+              id="duration"
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+              className="w-full px-3 py-2 text-xs bg-surface border border-surface-border rounded-xl focus-ring text-ink"
+            >
+              <option>A few hours</option>
+              <option>1 day</option>
+              <option>Full weekend</option>
+            </select>
+          </div>
+        </div>
+
+        {isMountingTask && (
+          <fieldset className="grid grid-cols-2 gap-3">
+            <legend className="sr-only">Wall mounting details</legend>
+            <div>
+              <label className="block text-xs font-semibold text-ink mb-1" htmlFor="wall-type">Wall type</label>
+              <select
+                id="wall-type"
+                value={wallType}
+                onChange={(e) => setWallType(e.target.value)}
+                className="w-full px-3 py-2 text-xs bg-surface border border-surface-border rounded-xl focus-ring text-ink"
+              >
+                <option value="">Select…</option>
+                {WALL_TYPES.map((w) => <option key={w.value} value={w.value}>{w.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-ink mb-1" htmlFor="shelf-load">Load</label>
+              <select
+                id="shelf-load"
+                value={shelfLoad}
+                onChange={(e) => setShelfLoad(e.target.value)}
+                className="w-full px-3 py-2 text-xs bg-surface border border-surface-border rounded-xl focus-ring text-ink"
+              >
+                <option value="">Select…</option>
+                {SHELF_LOADS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+              </select>
+            </div>
+          </fieldset>
+        )}
+
+        {error && (
+          <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>{error}</span>
+          </div>
+        )}
 
         <button
           type="submit"
-          disabled={isSubmitting || !taskDescription.trim()}
-          className="w-full py-3.5 bg-evergreen hover:bg-evergreen-dark text-white rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+          disabled={isSubmitting || task.trim().length < 3}
+          className="w-full py-3 bg-evergreen hover:bg-evergreen-dark text-white rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
         >
-          <span>{isSubmitting ? 'Analyzing & Building Checklist...' : 'Generate Requirements Checklist'}</span>
-          <ArrowRight className="w-4 h-4" />
+          {isSubmitting ? (
+            <>
+              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span>Building checklist...</span>
+            </>
+          ) : (
+            <>
+              <span>Generate Checklist</span>
+              <ArrowRight className="w-4 h-4" />
+            </>
+          )}
         </button>
       </form>
-
-      {/* Quick Starter Templates */}
-      <div className="space-y-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-ink">Or pick a starter template</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {templates.map((tpl, i) => {
-            const Icon = tpl.icon;
-            return (
-              <button
-                key={i}
-                type="button"
-                onClick={() => setTaskDescription(tpl.task)}
-                className="p-4 rounded-2xl bg-surface border border-surface-border hover:border-evergreen/40 hover:bg-surface-secondary/60 text-left transition-all group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-evergreen-light text-evergreen flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-ink">{tpl.title}</h4>
-                    <p className="text-xs text-ink-muted line-clamp-1">{tpl.desc}</p>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
     </div>
   );
 };
-

@@ -10,6 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "dependencies": {
     "clsx": "^2.1.1",
     "lucide-react": "^0.475.0",

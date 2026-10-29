@@ -26,7 +26,14 @@ import {
   evaluateLaptopRepair,
   canAcceptRequest,
   findCompetingRequestsToDecline,
-  getVisibleContact,
+  maskPhone,
+  maskFlat,
+  evaluateTaskSafetyGate,
+  applySafetyGate,
+  normalizeChecklistItems,
+  buildPlanOptionsMatrix,
+  computeSocietyImpact,
+  DemandEntry,
 } from '@sidekit/shared';
 import { ISidekitService } from './ISidekitService';
 
@@ -38,6 +45,7 @@ const STORAGE_KEYS = {
   PLANS: 'sidekit_plans',
   SHOPS: 'sidekit_shops',
   NOTIFICATIONS: 'sidekit_notifications',
+  DEMAND: 'sidekit_demand',
   CLOCK_OFFSET_HOURS: 'sidekit_clock_offset_hours',
 };
 
@@ -95,6 +103,9 @@ export class MockSidekitService implements ISidekitService {
         },
       ];
       this.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(initialNotifications));
+    }
+    if (force || !this.getItem(STORAGE_KEYS.DEMAND)) {
+      this.setItem(STORAGE_KEYS.DEMAND, '[]');
     }
     if (force || !this.getItem(STORAGE_KEYS.CLOCK_OFFSET_HOURS)) {
       this.setItem(STORAGE_KEYS.CLOCK_OFFSET_HOURS, '0');
@@ -331,13 +342,17 @@ export class MockSidekitService implements ISidekitService {
       ];
     }
 
+    const safetyGate = evaluateTaskSafetyGate(taskDescription, clarificationAnswers);
+
     const newPlan: Plan = {
       id: `plan_${Date.now()}`,
       userId: user.id,
       taskDescription,
       interpretedCategory: category,
       clarificationAnswers,
-      items,
+      items: applySafetyGate(items, safetyGate),
+      safetyGate: safetyGate ?? undefined,
+      aiSource: 'template',
       status: 'active',
       createdAt: this.getSimulatedTime().toISOString(),
       updatedAt: this.getSimulatedTime().toISOString(),
@@ -363,13 +378,7 @@ export class MockSidekitService implements ISidekitService {
     const index = plans.findIndex((p) => p.id === id);
     if (index === -1) throw new Error(`Plan ${id} not found`);
 
-    // Ensure missingQuantity = Math.max(0, neededQuantity - ownedQuantity)
-    const normalizedItems = items.map((item) => ({
-      ...item,
-      missingQuantity: Math.max(0, item.neededQuantity - item.ownedQuantity),
-    }));
-
-    plans[index].items = normalizedItems;
+    plans[index].items = normalizeChecklistItems(items);
     plans[index].updatedAt = this.getSimulatedTime().toISOString();
     this.setItem(STORAGE_KEYS.PLANS, JSON.stringify(plans));
     return plans[index];
@@ -383,30 +392,24 @@ export class MockSidekitService implements ISidekitService {
     const shops = await this.getExternalShops();
     const user = await this.getCurrentUser();
 
-    const matrixItems = plan.items
-      .filter((item) => item.missingQuantity > 0)
-      .map((item) => {
-        const ranked = rankOptionsForItem(item.itemKey, listings, shops, {
-          neededQuantity: item.missingQuantity,
-          durationDays: 1,
-          requesterTower: user.tower,
-          newOnly,
-        });
+    return buildPlanOptionsMatrix(plan, listings, shops, { requesterTower: user.tower, newOnly });
+  }
 
-        return {
-          itemKey: item.itemKey,
-          itemName: item.name,
-          neededQuantity: item.neededQuantity,
-          missingQuantity: item.missingQuantity,
-          isConsumable: item.isConsumable,
-          rankedOptions: ranked,
-        };
-      });
-
-    return {
-      planId: plan.id,
-      items: matrixItems,
-    };
+  async registerDemand(itemKey: string, itemName: string): Promise<{ registered: boolean; alreadyRegistered: boolean }> {
+    const user = await this.getCurrentUser();
+    const demand: DemandEntry[] = JSON.parse(this.getItem(STORAGE_KEYS.DEMAND) || '[]');
+    if (demand.some((d) => d.userId === user.id && d.itemKey === itemKey)) {
+      return { registered: true, alreadyRegistered: true };
+    }
+    demand.push({
+      id: `dmd_${Date.now()}`,
+      userId: user.id,
+      itemKey,
+      itemName,
+      createdAt: this.getSimulatedTime().toISOString(),
+    });
+    this.setItem(STORAGE_KEYS.DEMAND, JSON.stringify(demand));
+    return { registered: true, alreadyRegistered: false };
   }
 
   async evaluateRepair(data: RepairEvaluationInput): Promise<RepairEvaluationResult> {
@@ -514,6 +517,12 @@ export class MockSidekitService implements ISidekitService {
     const index = listings.findIndex((l) => l.id === id);
     if (index === -1) throw new Error(`Listing ${id} not found`);
 
+    const user = await this.getCurrentUser();
+    if (listings[index].ownerId === user.id) throw new Error('You cannot report your own listing.');
+    const reporters = new Set(listings[index].reportedBy || []);
+    if (reporters.has(user.id)) throw new Error('You have already reported this listing.');
+    reporters.add(user.id);
+    listings[index].reportedBy = Array.from(reporters);
     listings[index].reportsCount = (listings[index].reportsCount || 0) + 1;
     let hidden = false;
 
@@ -538,16 +547,43 @@ export class MockSidekitService implements ISidekitService {
     return JSON.parse(this.getItem(STORAGE_KEYS.REQUESTS) || '[]');
   }
 
+  /**
+   * Masks contact fields on a request unless it is in accepted or handed_over state.
+   * This prevents phone numbers and flat numbers from leaking in API responses.
+   */
+  private sanitizeRequest(r: Request): Request {
+    const revealed = r.status === 'accepted' || r.status === 'handed_over';
+    if (revealed) return r;
+    return {
+      ...r,
+      requesterPhone: r.requesterPhone ? maskPhone(r.requesterPhone) : undefined,
+      requesterFlat: r.requesterFlat ? maskFlat(r.requesterFlat) : undefined,
+      ownerPhone: r.ownerPhone ? maskPhone(r.ownerPhone) : undefined,
+      ownerFlat: r.ownerFlat ? maskFlat(r.ownerFlat) : undefined,
+    };
+  }
+
+  private async assertOwner(target: Request, action: string): Promise<void> {
+    const user = await this.getCurrentUser();
+    if (user.id !== target.ownerId) {
+      throw new Error(`Only the listing owner can ${action} this request.`);
+    }
+  }
+
   async getMyRequests(): Promise<Request[]> {
     const user = await this.getCurrentUser();
     const all = await this.getAllRequests();
-    return all.filter((r) => r.requesterId === user.id);
+    return all
+      .filter((r) => r.requesterId === user.id)
+      .map((r) => this.sanitizeRequest(r));
   }
 
   async getOwnerRequests(): Promise<Request[]> {
     const user = await this.getCurrentUser();
     const all = await this.getAllRequests();
-    return all.filter((r) => r.ownerId === user.id);
+    return all
+      .filter((r) => r.ownerId === user.id)
+      .map((r) => this.sanitizeRequest(r));
   }
 
   async createRequest(data: CreateRequestInput): Promise<Request> {
@@ -566,6 +602,15 @@ export class MockSidekitService implements ISidekitService {
       throw new Error('Consumable items cannot be borrowed or rented; they must be purchased.');
     }
 
+    // FIX-P1-02: Duplicate request prevention
+    const requests = await this.getAllRequests();
+    const existing = requests.find(
+      (r) => r.listingId === data.listingId && r.requesterId === user.id && (r.status === 'pending' || r.status === 'accepted')
+    );
+    if (existing) {
+      throw new Error('You already have a pending or active request for this item.');
+    }
+
     // Price math
     let totalPrice = 0;
     if (data.kind === 'rent' && listing.price) {
@@ -578,7 +623,6 @@ export class MockSidekitService implements ISidekitService {
       totalPrice = listing.price * data.requestedQuantity;
     }
 
-    const requests = await this.getAllRequests();
     const owner = await this.getUserById(listing.ownerId);
 
     const newRequest: Request = {
@@ -611,6 +655,21 @@ export class MockSidekitService implements ISidekitService {
 
     requests.unshift(newRequest);
     this.setItem(STORAGE_KEYS.REQUESTS, JSON.stringify(requests));
+
+    // FIX-P1-01: Notify owner of new request
+    const allNotifs: AppNotification[] = JSON.parse(this.getItem(STORAGE_KEYS.NOTIFICATIONS) || '[]');
+    allNotifs.push({
+      id: `notif_${Date.now()}_req_received`,
+      userId: listing.ownerId,
+      type: 'request_received',
+      title: 'New Booking Request',
+      message: `${user.name} has requested "${listing.title}".`,
+      link: '/inbox',
+      read: false,
+      createdAt: this.getSimulatedTime().toISOString(),
+    });
+    this.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(allNotifs));
+
     return newRequest;
   }
 
@@ -618,6 +677,8 @@ export class MockSidekitService implements ISidekitService {
     const requests = await this.getAllRequests();
     const target = requests.find((r) => r.id === requestId);
     if (!target) throw new Error(`Request ${requestId} not found`);
+    await this.assertOwner(target, 'accept');
+    if (target.status !== 'pending') throw new Error(`Cannot accept a request in '${target.status}' status.`);
 
     const listing = await this.getListing(target.listingId);
     if (!listing) throw new Error('Listing not found');
@@ -648,6 +709,20 @@ export class MockSidekitService implements ISidekitService {
     target.updatedAt = this.getSimulatedTime().toISOString();
     this.setItem(STORAGE_KEYS.REQUESTS, JSON.stringify(requests));
 
+    // FIX-P1-01: Notify requester of acceptance
+    const allNotifs: AppNotification[] = JSON.parse(this.getItem(STORAGE_KEYS.NOTIFICATIONS) || '[]');
+    allNotifs.push({
+      id: `notif_${Date.now()}_accepted`,
+      userId: target.requesterId,
+      type: 'request_accepted',
+      title: 'Request Accepted!',
+      message: `Your request for "${target.listingTitle}" has been accepted. Contact details are now available.`,
+      link: '/my/requests',
+      read: false,
+      createdAt: this.getSimulatedTime().toISOString(),
+    });
+    this.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(allNotifs));
+
     return {
       accepted: target,
       autoDeclinedCount: toDecline.length,
@@ -658,11 +733,28 @@ export class MockSidekitService implements ISidekitService {
     const requests = await this.getAllRequests();
     const target = requests.find((r) => r.id === requestId);
     if (!target) throw new Error(`Request ${requestId} not found`);
+    await this.assertOwner(target, 'decline');
+    if (target.status !== 'pending') throw new Error(`Cannot decline a request in '${target.status}' status.`);
 
     target.status = 'declined';
     target.declineReason = reason;
     target.updatedAt = this.getSimulatedTime().toISOString();
     this.setItem(STORAGE_KEYS.REQUESTS, JSON.stringify(requests));
+
+    // FIX-P1-01: Notify requester of decline
+    const allNotifs: AppNotification[] = JSON.parse(this.getItem(STORAGE_KEYS.NOTIFICATIONS) || '[]');
+    allNotifs.push({
+      id: `notif_${Date.now()}_declined`,
+      userId: target.requesterId,
+      type: 'request_declined',
+      title: 'Request Declined',
+      message: `Your request for "${target.listingTitle}" was declined: ${reason}.`,
+      link: '/my/requests',
+      read: false,
+      createdAt: this.getSimulatedTime().toISOString(),
+    });
+    this.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(allNotifs));
+
     return target;
   }
 
@@ -675,8 +767,11 @@ export class MockSidekitService implements ISidekitService {
     const target = requests.find((r) => r.id === requestId);
     if (!target) throw new Error(`Request ${requestId} not found`);
 
-    if (target.status === 'handed_over') {
+    if (target.status === 'handed_over' || target.status === 'completed') {
       throw new Error('Cannot cancel a request after items have been physically handed over.');
+    }
+    if (target.status !== 'pending' && target.status !== 'accepted') {
+      throw new Error(`Cannot cancel a request in '${target.status}' status.`);
     }
 
     target.status = 'cancelled';
@@ -686,6 +781,23 @@ export class MockSidekitService implements ISidekitService {
     target.updatedAt = this.getSimulatedTime().toISOString();
 
     this.setItem(STORAGE_KEYS.REQUESTS, JSON.stringify(requests));
+
+    // FIX-P1-01: Notify owner if cancelled by requester
+    if (target.cancelledBy === target.requesterId) {
+      const allNotifs: AppNotification[] = JSON.parse(this.getItem(STORAGE_KEYS.NOTIFICATIONS) || '[]');
+      allNotifs.push({
+        id: `notif_${Date.now()}_cancelled`,
+        userId: target.ownerId,
+        type: 'request_cancelled',
+        title: 'Request Cancelled',
+        message: `${target.requesterName || 'A requester'} cancelled their request for "${target.listingTitle}".`,
+        link: '/inbox',
+        read: false,
+        createdAt: this.getSimulatedTime().toISOString(),
+      });
+      this.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(allNotifs));
+    }
+
     return target;
   }
 
@@ -693,6 +805,8 @@ export class MockSidekitService implements ISidekitService {
     const requests = await this.getAllRequests();
     const target = requests.find((r) => r.id === requestId);
     if (!target) throw new Error(`Request ${requestId} not found`);
+    await this.assertOwner(target, 'confirm handover for');
+    if (target.status !== 'accepted') throw new Error(`Cannot confirm handover for a request in '${target.status}' status.`);
 
     target.status = 'handed_over';
     target.handoverConfirmedAt = this.getSimulatedTime().toISOString();
@@ -706,6 +820,8 @@ export class MockSidekitService implements ISidekitService {
     const requests = await this.getAllRequests();
     const target = requests.find((r) => r.id === requestId);
     if (!target) throw new Error(`Request ${requestId} not found`);
+    await this.assertOwner(target, 'complete');
+    if (target.status !== 'handed_over') throw new Error(`Cannot complete a request in '${target.status}' status.`);
 
     target.status = 'completed';
     target.returnedAt = this.getSimulatedTime().toISOString();
@@ -753,21 +869,8 @@ export class MockSidekitService implements ISidekitService {
 
   async getSocietyImpact(): Promise<SocietyImpactStats> {
     const requests = await this.getAllRequests();
-    const completed = requests.filter((r) => r.status === 'completed');
-    const totalSavings = completed.reduce((sum, r) => sum + (r.totalPrice || 350), 184500);
-
-    return {
-      totalSavingsInr: totalSavings,
-      co2AvoidedKg: Math.round(totalSavings * 0.08),
-      totalItemsShared: completed.length + 142,
-      activeHouseholds: 86,
-      topSharedCategories: [
-        { category: 'DIY & Tools', count: 68 },
-        { category: 'Deep Cleaning', count: 42 },
-        { category: 'Gardening', count: 24 },
-        { category: 'Electronics & Repairs', count: 18 },
-      ],
-    };
+    const demand: DemandEntry[] = JSON.parse(this.getItem(STORAGE_KEYS.DEMAND) || '[]');
+    return computeSocietyImpact(requests, demand);
   }
 
   async getAdminQueue(): Promise<AdminQueueData> {

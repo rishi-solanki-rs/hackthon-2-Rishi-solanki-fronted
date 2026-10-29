@@ -1,248 +1,184 @@
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import {
-  Laptop,
-  AlertTriangle,
-  CheckCircle2,
-  HelpCircle,
-  ArrowRight,
-  TrendingDown,
-  Wrench,
-  ShieldCheck,
-  RefreshCw,
-} from 'lucide-react';
+import { Laptop, AlertTriangle, CheckCircle, Wrench, ArrowLeft, AlertCircle } from 'lucide-react';
 import { RepairEvaluationResult } from '@sidekit/shared';
 import { sidekitService } from '../services';
 
 export const PlanRepairPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-
   const [brand, setBrand] = useState('Dell');
   const [model, setModel] = useState('Inspiron 15 5000');
   const [originalPrice, setOriginalPrice] = useState(55000);
   const [ageYears, setAgeYears] = useState(4);
-  const [issue, setIssue] = useState('Screen flickering with horizontal lines, battery drops from 100% to 10% in 30 mins');
+  const [issue, setIssue] = useState('Screen flickering, battery drains fast');
   const [batteryHealth, setBatteryHealth] = useState(45);
-
   const [result, setResult] = useState<RepairEvaluationResult | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
+  const [error, setError] = useState('');
 
   const handleEvaluate = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsEvaluating(true); setError('');
     try {
-      setIsEvaluating(true);
       const res = await sidekitService.evaluateRepair({
-        brand,
-        model,
-        originalPrice,
-        ageYears,
-        issue,
+        brand, model, originalPrice, ageYears, issue,
         batteryHealthPercent: batteryHealth,
       });
       setResult(res);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsEvaluating(false);
-    }
+    } catch (err: any) { setError(err.message || 'Evaluation failed.'); }
+    setIsEvaluating(false);
   };
 
   return (
-    <div className="max-w-3xl mx-auto py-8 px-4 space-y-8">
+    <div className="max-w-2xl mx-auto py-10 px-4 space-y-8">
       {/* Header */}
-      <div className="space-y-2">
-        <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-evergreen bg-evergreen-light px-2.5 py-1 rounded-lg">
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2 text-xs font-semibold text-evergreen">
           <Laptop className="w-3.5 h-3.5" />
-          <span>Laptop Repair vs. Replacement Advisor</span>
+          Repair vs. Replace Advisor
         </div>
-        <h1 className="text-3xl font-bold tracking-tight text-ink">
-          Repair or Replace Your Laptop?
-        </h1>
-        <p className="text-xs sm:text-sm text-ink-muted leading-relaxed">
-          The 50% Rule: If the estimated repair cost exceeds 50% of the machine's current residual value, purchasing a reliable pre-owned or new machine is more cost-effective.
+        <h1 className="text-2xl font-bold text-ink">Laptop Economics</h1>
+        <p className="text-sm text-ink-muted">
+          If repair cost exceeds 50% of the laptop's residual value, replacement is more economical.
         </p>
       </div>
 
-      {/* Input Form */}
-      <form onSubmit={handleEvaluate} className="p-6 bg-surface rounded-3xl border border-surface-border shadow-sm space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Input form */}
+      <form onSubmit={handleEvaluate} className="bg-white rounded-2xl border border-surface-border p-6 space-y-4">
+        <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-1">
-              Laptop Brand
-            </label>
-            <input
-              type="text"
-              value={brand}
-              onChange={(e) => setBrand(e.target.value)}
-              className="w-full px-3 py-2 text-xs sm:text-sm bg-surface-secondary border border-surface-border rounded-xl focus-ring"
-              required
-            />
+            <label className="block text-xs font-semibold text-ink mb-1">Brand</label>
+            <input type="text" value={brand} onChange={(e) => setBrand(e.target.value)}
+              className="w-full px-3 py-2 text-sm bg-surface-secondary border border-surface-border rounded-xl focus-ring" required />
           </div>
-
           <div>
-            <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-1">
-              Model
-            </label>
-            <input
-              type="text"
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              className="w-full px-3 py-2 text-xs sm:text-sm bg-surface-secondary border border-surface-border rounded-xl focus-ring"
-              required
-            />
+            <label className="block text-xs font-semibold text-ink mb-1">Model</label>
+            <input type="text" value={model} onChange={(e) => setModel(e.target.value)}
+              className="w-full px-3 py-2 text-sm bg-surface-secondary border border-surface-border rounded-xl focus-ring" required />
           </div>
-
           <div>
-            <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-1">
-              Original Purchase Price (₹)
-            </label>
-            <input
-              type="number"
-              min="5000"
-              value={originalPrice}
-              onChange={(e) => setOriginalPrice(parseInt(e.target.value) || 0)}
-              className="w-full px-3 py-2 text-xs sm:text-sm bg-surface-secondary border border-surface-border rounded-xl focus-ring font-mono"
-              required
-            />
+            <label className="block text-xs font-semibold text-ink mb-1">Original Price (₹)</label>
+            <input type="number" value={originalPrice} onChange={(e) => setOriginalPrice(parseInt(e.target.value) || 0)}
+              className="w-full px-3 py-2 text-sm bg-surface-secondary border border-surface-border rounded-xl focus-ring font-mono" required min={5000} />
           </div>
-
           <div>
-            <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-1">
-              Laptop Age (Years)
-            </label>
-            <input
-              type="number"
-              min="0"
-              max="15"
-              value={ageYears}
-              onChange={(e) => setAgeYears(parseInt(e.target.value) || 0)}
-              className="w-full px-3 py-2 text-xs sm:text-sm bg-surface-secondary border border-surface-border rounded-xl focus-ring font-mono"
-              required
-            />
+            <label className="block text-xs font-semibold text-ink mb-1">Age (years)</label>
+            <input type="number" value={ageYears} onChange={(e) => setAgeYears(parseInt(e.target.value) || 0)}
+              className="w-full px-3 py-2 text-sm bg-surface-secondary border border-surface-border rounded-xl focus-ring font-mono" required min={0} max={20} />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-1">
-            Battery Health (Optional %)
-          </label>
-          <div className="flex items-center gap-3">
-            <input
-              type="range"
-              min="20"
-              max="100"
-              value={batteryHealth}
-              onChange={(e) => setBatteryHealth(parseInt(e.target.value))}
-              className="w-full accent-evergreen"
-            />
-            <span className="text-xs font-bold text-ink w-12 font-mono">{batteryHealth}%</span>
-          </div>
+          <label className="block text-xs font-semibold text-ink mb-1">Describe the Issue</label>
+          <textarea rows={2} value={issue} onChange={(e) => setIssue(e.target.value)}
+            className="w-full p-3 text-sm bg-surface-secondary border border-surface-border rounded-xl focus-ring resize-none"
+            required placeholder="e.g. Screen cracked, slow boot, liquid damage..." />
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-1">
-            Symptoms & Observed Damage
+          <label className="block text-xs font-semibold text-ink mb-1">
+            Battery Health: <span className="font-bold text-ink">{batteryHealth}%</span>
           </label>
-          <textarea
-            rows={3}
-            value={issue}
-            onChange={(e) => setIssue(e.target.value)}
-            className="w-full p-3 text-xs sm:text-sm bg-surface-secondary border border-surface-border rounded-xl focus-ring"
-            placeholder="e.g. Spilled coffee, keys not working, very slow boot, screen cracked..."
-            required
-          />
+          <input type="range" min={10} max={100} value={batteryHealth}
+            onChange={(e) => setBatteryHealth(parseInt(e.target.value))}
+            className="w-full accent-evergreen" />
+          <div className="flex justify-between text-[10px] text-ink-muted mt-0.5">
+            <span>10% (critical)</span><span>100% (full)</span>
+          </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={isEvaluating}
-          className="w-full py-3 bg-evergreen hover:bg-evergreen-dark text-white rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
-        >
-          <span>{isEvaluating ? 'Calculating Diagnostics...' : 'Evaluate Repair Economics'}</span>
-          <ArrowRight className="w-4 h-4" />
+        {error && (
+          <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            {error}
+          </div>
+        )}
+
+        <button type="submit" disabled={isEvaluating}
+          className="w-full py-3 bg-evergreen hover:bg-evergreen-dark text-white rounded-xl font-semibold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+          {isEvaluating ? (
+            <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Evaluating...</>
+          ) : 'Evaluate Repair Economics'}
         </button>
       </form>
 
-      {/* Results View */}
+      {/* Result */}
       {result && (
-        <div className="p-6 bg-surface rounded-3xl border border-surface-border shadow-sm space-y-6 animate-in fade-in zoom-in-95 duration-200">
-          <div
-            className={`p-4 rounded-2xl border flex items-start gap-3 ${
-              result.recommendation === 'repair'
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
-                : 'bg-amber-50 border-amber-200 text-amber-950'
-            }`}
-          >
-            {result.recommendation === 'repair' ? (
-              <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0 mt-0.5" />
-            ) : (
-              <AlertTriangle className="w-6 h-6 text-amber-600 shrink-0 mt-0.5" />
-            )}
+        <div className={`rounded-2xl border p-6 space-y-5 ${
+          result.recommendation === 'replace'
+            ? 'bg-rose-50/50 border-rose-200'
+            : 'bg-emerald-50/50 border-emerald-200'
+        }`}>
+          {/* Verdict */}
+          <div className="flex items-start gap-3">
+            {result.recommendation === 'replace'
+              ? <AlertTriangle className="w-6 h-6 text-rose-600 shrink-0 mt-0.5" />
+              : <CheckCircle className="w-6 h-6 text-emerald-600 shrink-0 mt-0.5" />
+            }
             <div>
-              <h3 className="text-sm font-bold">{result.headline}</h3>
-              <p className="text-xs opacity-90 mt-1 leading-relaxed">
-                Repair Ratio: <strong>{result.repairRatioPercent}%</strong> of estimated residual machine value.
-              </p>
+              <h2 className={`text-base font-bold ${result.recommendation === 'replace' ? 'text-rose-800' : 'text-emerald-800'}`}>
+                {result.headline}
+              </h2>
+              <p className="text-xs text-ink-muted mt-0.5">Recommendation: <strong className="uppercase">{result.recommendation}</strong></p>
             </div>
           </div>
 
-          {/* Metric Comparison Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-4 bg-surface-secondary/70 rounded-2xl border border-surface-border space-y-1">
-              <span className="text-[11px] font-semibold text-ink-muted uppercase">Estimated Repair Cost</span>
-              <div className="text-xl font-bold text-ink">
-                ₹{result.estimatedRepairCostMin.toLocaleString('en-IN')} - ₹{result.estimatedRepairCostMax.toLocaleString('en-IN')}
-              </div>
+          {/* Economics */}
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="p-3 bg-white rounded-xl border border-surface-border">
+              <div className="text-base font-bold text-ink">₹{result.estimatedRepairCostMin.toLocaleString('en-IN')}–{result.estimatedRepairCostMax.toLocaleString('en-IN')}</div>
+              <div className="text-[10px] text-ink-muted uppercase tracking-wider mt-0.5">Repair Range</div>
             </div>
-
-            <div className="p-4 bg-surface-secondary/70 rounded-2xl border border-surface-border space-y-1">
-              <span className="text-[11px] font-semibold text-ink-muted uppercase">Current Residual Value</span>
-              <div className="text-xl font-bold text-ink">
-                ₹{result.currentResidualValue.toLocaleString('en-IN')}
-              </div>
+            <div className="p-3 bg-white rounded-xl border border-surface-border">
+              <div className="text-base font-bold text-ink">₹{result.currentResidualValue.toLocaleString('en-IN')}</div>
+              <div className="text-[10px] text-ink-muted uppercase tracking-wider mt-0.5">Residual Value</div>
             </div>
-
-            <div className="p-4 bg-surface-secondary/70 rounded-2xl border border-surface-border space-y-1">
-              <span className="text-[11px] font-semibold text-ink-muted uppercase">Economic Verdict</span>
-              <div className={`text-xl font-bold capitalize ${result.recommendation === 'repair' ? 'text-emerald-700' : 'text-amber-700'}`}>
-                {result.recommendation}
+            <div className={`p-3 rounded-xl border ${result.repairRatioPercent > 50 ? 'bg-rose-50 border-rose-200' : 'bg-emerald-50 border-emerald-200'}`}>
+              <div className={`text-base font-bold ${result.repairRatioPercent > 50 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                {result.repairRatioPercent}%
               </div>
+              <div className="text-[10px] text-ink-muted uppercase tracking-wider mt-0.5">Repair Ratio</div>
             </div>
           </div>
 
-          {/* Analysis & Reasons */}
+          {/* Battery action */}
+          {result.batteryAction && (
+            <div className="p-3 bg-white border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+              {result.batteryAction}
+            </div>
+          )}
+
+          {/* Reasons */}
           <div className="space-y-2">
-            <h4 className="text-xs font-bold text-ink uppercase tracking-wider">Expert Assessment & Rationale</h4>
-            <ul className="space-y-2 text-xs text-ink-muted">
-              {result.reasons.map((r, i) => (
-                <li key={i} className="flex items-start gap-2">
-                  <span className="text-evergreen font-bold">•</span>
-                  <span>{r}</span>
-                </li>
-              ))}
-            </ul>
+            {result.reasons.map((r, i) => (
+              <p key={i} className="text-xs text-ink-muted leading-relaxed flex items-start gap-1.5">
+                <span className="text-ink-subtle mt-0.5">•</span>
+                {r}
+              </p>
+            ))}
           </div>
 
-          {/* Suggested Alternative Listing in Society */}
+          {/* Suggest alternative */}
           {result.suggestedAlternativeListingId && (
-            <div className="p-4 bg-surface-secondary rounded-2xl border border-surface-border flex items-center justify-between gap-3">
-              <div>
-                <div className="text-xs font-bold text-ink">Available in Society: ThinkPad T480</div>
-                <div className="text-[11px] text-ink-muted">
-                  Amit K. (Tower B) is selling a tested ThinkPad T480 with original charger for ₹18,000.
-                </div>
-              </div>
-              <Link
-                to={`/listing/${result.suggestedAlternativeListingId}`}
-                className="px-3 py-1.5 bg-evergreen hover:bg-evergreen-dark text-white font-semibold text-xs rounded-xl shrink-0"
-              >
-                View Listing
+            <div className="pt-3 border-t border-surface-border">
+              <p className="text-xs text-ink-muted mb-2">A reliable refurbished alternative is available in your community:</p>
+              <Link to={`/listing/${result.suggestedAlternativeListingId}`}
+                className="flex items-center gap-2 p-3 bg-white rounded-xl border border-evergreen/30 hover:border-evergreen/50 transition-colors text-sm font-semibold text-evergreen">
+                <Wrench className="w-4 h-4 shrink-0" />
+                View ThinkPad T480 in Community Catalog →
               </Link>
             </div>
           )}
         </div>
       )}
+
+      {id && (
+        <Link to={`/plan/${id}`} className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink">
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Back to plan
+        </Link>
+      )}
     </div>
   );
 };
-

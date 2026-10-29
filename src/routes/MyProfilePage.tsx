@@ -1,213 +1,138 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import {
-  User as UserIcon,
-  ShieldAlert,
-  Award,
-  Star,
-  CheckCircle,
-  Heart,
-  TrendingUp,
-  Trash2,
-  AlertCircle,
-} from 'lucide-react';
+import { Star, Award, Heart, AlertCircle, ExternalLink } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { sidekitService } from '../services';
 
 export const MyProfilePage: React.FC = () => {
-  const { currentUser, refreshCurrentUser } = useAuth();
+  const { currentUser } = useAuth();
   const navigate = useNavigate();
-
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  if (!currentUser) {
-    return <div className="py-20 text-center text-xs text-ink-muted">Loading profile...</div>;
-  }
+  if (!currentUser) return <div className="py-20 text-center text-sm text-ink-muted">Loading profile...</div>;
 
-  const handleDeleteAccount = async () => {
+  const handleDelete = async () => {
+    setIsDeleting(true); setDeleteError('');
     try {
-      setIsDeleting(true);
-      setDeleteError(null);
       await sidekitService.deleteAccount(currentUser.id);
-      alert('Your account has been deleted.');
       navigate('/');
       window.location.reload();
-    } catch (err: any) {
-      setDeleteError(err.message || 'Cannot delete account at this time.');
-    } finally {
-      setIsDeleting(false);
-    }
+    } catch (err: any) { setDeleteError(err.message || 'Cannot delete account.'); }
+    setIsDeleting(false);
   };
 
   return (
-    <div className="max-w-3xl mx-auto py-8 px-4 space-y-6">
-      {/* Profile Header */}
-      <div className="p-6 bg-surface rounded-3xl border border-surface-border shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-evergreen/10 text-evergreen font-bold text-2xl flex items-center justify-center border border-evergreen/20">
-            {currentUser.name.charAt(0)}
-          </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-ink">
-              {currentUser.name}
-            </h1>
-            <div className="text-xs text-ink-muted mt-0.5 flex items-center gap-2">
-              <span>{currentUser.tower}</span>
-              <span>·</span>
-              <span>Flat {currentUser.flat}</span>
-              <span>·</span>
-              <span className="capitalize font-semibold text-evergreen">{currentUser.role}</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-amber-600 font-bold mt-1">
-              <Star className="w-3.5 h-3.5 fill-current" />
-              <span>{currentUser.rating}</span>
-              <span className="text-ink-muted font-normal">({currentUser.reviewCount} community reviews)</span>
-            </div>
+    <div className="max-w-2xl mx-auto py-10 px-4 space-y-6">
+      {/* Profile header */}
+      <div className="bg-white rounded-2xl border border-surface-border p-6 flex items-center gap-5">
+        <div className="w-16 h-16 rounded-2xl bg-evergreen/10 text-evergreen font-bold text-2xl flex items-center justify-center border border-evergreen/20 shrink-0">
+          {currentUser.name.charAt(0)}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl font-bold text-ink truncate">{currentUser.name}</h1>
+          <p className="text-xs text-ink-muted mt-0.5">
+            {currentUser.tower} · Flat {currentUser.flat}
+            <span className="ml-2 px-1.5 py-0.5 rounded bg-evergreen/8 text-evergreen text-[10px] font-semibold capitalize"
+              style={{ background: 'rgba(23,107,84,0.06)' }}>
+              {currentUser.role}
+            </span>
+          </p>
+          <div className="flex items-center gap-1 text-xs text-amber-600 font-semibold mt-1">
+            <Star className="w-3 h-3 fill-current" />
+            {currentUser.rating} · {currentUser.reviewCount} reviews
           </div>
         </div>
-
-        {/* Action Link to Public View */}
-        <Link
-          to={`/u/${currentUser.id}`}
-          className="px-4 py-2 bg-surface-secondary hover:bg-surface-border text-xs font-semibold rounded-xl text-ink self-start sm:self-auto"
-        >
-          View Public Profile
+        <Link to={`/u/${currentUser.id}`}
+          className="flex items-center gap-1 text-xs text-ink-muted hover:text-ink shrink-0">
+          <ExternalLink className="w-3.5 h-3.5" />
+          Public view
         </Link>
       </div>
 
-      {/* Stats Counter (FIX-PROFILE-01) */}
+      {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="p-4 bg-surface rounded-2xl border border-surface-border text-center space-y-1">
-          <div className="text-2xl font-black text-evergreen">{currentUser.itemsSharedCount}</div>
-          <div className="text-[11px] font-semibold text-ink-muted uppercase">Items Shared</div>
-        </div>
-
-        <div className="p-4 bg-surface rounded-2xl border border-surface-border text-center space-y-1">
-          <div className="text-2xl font-black text-ink">
-            ₹{currentUser.totalEstimatedSavings.toLocaleString('en-IN')}
+        {[
+          { label: 'Items Shared', value: currentUser.itemsSharedCount, cls: 'text-evergreen' },
+          { label: 'Savings', value: `₹${currentUser.totalEstimatedSavings.toLocaleString('en-IN')}`, cls: 'text-ink' },
+          { label: 'Return Rate', value: '100%', cls: 'text-emerald-600' },
+        ].map(({ label, value, cls }) => (
+          <div key={label} className="p-4 bg-white rounded-2xl border border-surface-border text-center">
+            <div className={`text-xl font-bold ${cls}`}>{value}</div>
+            <div className="text-[11px] text-ink-muted mt-1">{label}</div>
           </div>
-          <div className="text-[11px] font-semibold text-ink-muted uppercase">Community Savings</div>
-        </div>
+        ))}
+      </div>
 
-        <div className="p-4 bg-surface rounded-2xl border border-surface-border text-center space-y-1">
-          <div className="text-2xl font-black text-emerald-600">100%</div>
-          <div className="text-[11px] font-semibold text-ink-muted uppercase">On-Time Return Rate</div>
+      {/* Badges */}
+      <div className="bg-white rounded-2xl border border-surface-border p-5 space-y-3">
+        <h2 className="text-sm font-bold text-ink">Badges</h2>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { icon: Award, label: 'Verified Neighbour', cls: 'text-evergreen' },
+            { icon: Heart, label: 'Community Helper', cls: 'text-rose-500' },
+          ].map(({ icon: Icon, label, cls }) => (
+            <div key={label} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-surface-border bg-surface-secondary text-xs font-medium text-ink">
+              <Icon className={`w-4 h-4 ${cls}`} />
+              {label}
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Trust Badges */}
-      <div className="p-6 bg-surface rounded-3xl border border-surface-border shadow-sm space-y-3">
-        <h3 className="text-xs font-bold text-ink uppercase tracking-wider">Community Badges</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="p-3 bg-evergreen-light/40 border border-evergreen/20 rounded-2xl flex items-center gap-3">
-            <Award className="w-5 h-5 text-evergreen shrink-0" />
-            <div>
-              <div className="text-xs font-bold text-ink">Verified Neighbour</div>
-              <div className="text-[10px] text-ink-muted">Resident Welfare Association approved</div>
-            </div>
-          </div>
-
-          <div className="p-3 bg-evergreen-light/40 border border-evergreen/20 rounded-2xl flex items-center gap-3">
-            <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
-            <div>
-              <div className="text-xs font-bold text-ink">Master Toolkeeper</div>
-              <div className="text-[10px] text-ink-muted">Shared over 5 quality tools</div>
-            </div>
-          </div>
-
-          <div className="p-3 bg-evergreen-light/40 border border-evergreen/20 rounded-2xl flex items-center gap-3">
-            <Heart className="w-5 h-5 text-rose-500 shrink-0" />
-            <div>
-              <div className="text-xs font-bold text-ink">Community Helper</div>
-              <div className="text-[10px] text-ink-muted">High helpfulness rating</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Thank You Notes Received (FIX-SOCIAL-01) */}
-      <div className="p-6 bg-surface rounded-3xl border border-surface-border shadow-sm space-y-4">
-        <h3 className="text-xs font-bold text-ink uppercase tracking-wider flex items-center gap-2">
+      {/* Thank-you notes */}
+      <div className="bg-white rounded-2xl border border-surface-border p-5 space-y-3">
+        <h2 className="text-sm font-bold text-ink flex items-center gap-2">
           <Heart className="w-4 h-4 text-rose-500" />
-          <span>Thank-You Notes from Neighbours</span>
-        </h3>
-
-        {currentUser.thankYouNotes && currentUser.thankYouNotes.length > 0 ? (
+          Thank-You Notes
+        </h2>
+        {currentUser.thankYouNotes?.length ? (
           <div className="space-y-3">
             {currentUser.thankYouNotes.map((note) => (
-              <div key={note.id} className="p-3.5 bg-surface-secondary rounded-2xl text-xs space-y-1">
-                <div className="flex items-center justify-between text-ink-muted text-[11px]">
-                  <span className="font-bold text-ink">{note.fromUserName}</span>
+              <div key={note.id} className="p-3.5 bg-surface-secondary rounded-xl border-l-2 border-rose-200">
+                <div className="flex items-center justify-between text-[11px] text-ink-muted mb-1">
+                  <span className="font-semibold text-ink">{note.fromUserName}</span>
                   <span>{new Date(note.createdAt).toLocaleDateString()}</span>
                 </div>
-                <p className="text-ink leading-relaxed italic">"{note.message}"</p>
+                <p className="text-xs text-ink italic">"{note.message}"</p>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-xs text-ink-muted">
-            Complete loans to collect public thank-you notes on your profile.
-          </p>
+          <p className="text-xs text-ink-muted">Complete loans to receive notes.</p>
         )}
       </div>
 
-      {/* Account Deletion Guard (FIX-AUTH-03) */}
-      <div className="p-6 bg-surface rounded-3xl border border-surface-border shadow-sm flex items-center justify-between">
+      {/* Danger zone */}
+      <div className="bg-white rounded-2xl border border-surface-border p-5 flex items-center justify-between">
         <div>
-          <h4 className="text-xs font-bold text-rose-700 uppercase tracking-wider">Danger Zone</h4>
-          <p className="text-xs text-ink-muted mt-0.5">
-            Permanently remove your account and active listings from Palm Grove.
-          </p>
+          <p className="text-xs font-semibold text-rose-700">Danger Zone</p>
+          <p className="text-xs text-ink-muted mt-0.5">Permanently remove your account.</p>
         </div>
-
-        <button
-          type="button"
-          onClick={() => setShowDeleteModal(true)}
-          className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 transition-colors"
-        >
-          Delete My Account
+        <button onClick={() => setShowDeleteModal(true)}
+          className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-xl border border-rose-200 transition-colors">
+          Delete Account
         </button>
       </div>
 
-      {/* Account Deletion Confirmation Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm">
-          <div className="bg-surface rounded-3xl max-w-md w-full p-6 shadow-2xl border border-surface-border animate-in fade-in zoom-in-95 duration-150">
-            <h3 className="text-base font-bold text-ink flex items-center gap-2 text-rose-700">
-              <Trash2 className="w-5 h-5" />
-              <span>Delete Society Account</span>
-            </h3>
-            <p className="text-xs text-ink-muted mt-2 mb-4 leading-relaxed">
-              Are you sure? You cannot delete your account while you have open loans or active borrowings.
-            </p>
-
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-surface-border">
+            <h3 className="text-sm font-bold text-rose-700 mb-2">Delete Account?</h3>
+            <p className="text-xs text-ink-muted mb-4">Cannot delete while you have active loans.</p>
             {deleteError && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2 mb-4">
+              <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 mb-4">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>{deleteError}</span>
+                {deleteError}
               </div>
             )}
-
-            <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setDeleteError(null);
-                }}
-                className="px-4 py-2 text-xs font-semibold text-ink-muted hover:bg-surface-secondary rounded-xl"
-              >
-                Keep Account
-              </button>
-              <button
-                type="button"
-                disabled={isDeleting}
-                onClick={handleDeleteAccount}
-                className="px-5 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-sm disabled:opacity-50"
-              >
-                {isDeleting ? 'Checking...' : 'Yes, Delete'}
+            <div className="flex justify-end gap-2">
+              <button onClick={() => { setShowDeleteModal(false); setDeleteError(''); }}
+                className="px-4 py-2 text-xs text-ink-muted hover:bg-surface-secondary rounded-lg">Keep</button>
+              <button onClick={handleDelete} disabled={isDeleting}
+                className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-xl disabled:opacity-50">
+                {isDeleting ? '...' : 'Delete'}
               </button>
             </div>
           </div>
@@ -216,4 +141,3 @@ export const MyProfilePage: React.FC = () => {
     </div>
   );
 };
-

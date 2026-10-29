@@ -23,20 +23,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [simulatedTime, setSimulatedTime] = useState<Date>(sidekitService.getSimulatedTime());
 
   const loadData = async () => {
-    try {
-      setIsLoading(true);
-      const [user, users] = await Promise.all([
-        sidekitService.getCurrentUser(),
-        sidekitService.getAllUsers(),
-      ]);
-      setCurrentUser(user);
-      setAllUsers(users);
-      setSimulatedTime(sidekitService.getSimulatedTime());
-    } catch (err) {
-      console.error('Failed to load auth context:', err);
-    } finally {
-      setIsLoading(false);
+    // A sleeping free-tier backend can take up to a minute to wake, so retry with backoff
+    const retryDelaysMs = [2000, 5000, 10000, 20000, 30000];
+    setIsLoading(true);
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const [user, users] = await Promise.all([
+          sidekitService.getCurrentUser(),
+          sidekitService.getAllUsers(),
+        ]);
+        setCurrentUser(user);
+        setAllUsers(users);
+        setSimulatedTime(sidekitService.getSimulatedTime());
+        break;
+      } catch (err) {
+        if (attempt >= retryDelaysMs.length) {
+          console.error('Failed to load auth context:', err);
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, retryDelaysMs[attempt]));
+      }
     }
+    setIsLoading(false);
   };
 
   useEffect(() => {

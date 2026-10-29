@@ -1,297 +1,208 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import {
-  ShieldAlert,
-  Calendar,
-  CheckCircle2,
-  Clock,
-  MapPin,
-  Flag,
-  Share2,
-  ArrowLeft,
-  Sparkles,
-  Info,
-  Edit,
-} from 'lucide-react';
+import { ArrowLeft, Edit, Flag, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Listing } from '@sidekit/shared';
 import { sidekitService } from '../services';
 import { SampleBadge } from '../components/shared/SampleBadge';
+import { PRICE_NOT_AVAILABLE } from '../components/shared/listingPrice';
 import { useAuth } from '../context/AuthContext';
+
+const modeBadge = (mode: string) => {
+  if (mode === 'lend') return { label: 'Free Borrow', cls: 'bg-emerald-600 text-white' };
+  if (mode === 'rent') return { label: 'Rental', cls: 'bg-blue-600 text-white' };
+  return { label: 'Pre-Owned Sale', cls: 'bg-purple-600 text-white' };
+};
 
 export const ListingDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-
   const [listing, setListing] = useState<Listing | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Request Booking Modal
-  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  // Request modal
+  const [isRequestOpen, setIsRequestOpen] = useState(false);
   const [neededFrom, setNeededFrom] = useState('');
   const [neededTo, setNeededTo] = useState('');
   const [requestedQuantity, setRequestedQuantity] = useState(1);
   const [requestNote, setRequestNote] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [submitSuccess, setSubmitSuccess] = useState('');
 
-  // Reporting Modal
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  // Report modal
+  const [isReportOpen, setIsReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState('Unsafe or broken tool');
-  const [reportSuccess, setReportSuccess] = useState<string | null>(null);
+  const [reportSuccess, setReportSuccess] = useState('');
 
   useEffect(() => {
-    const fetchListing = async () => {
-      if (!id) return;
-      try {
-        setIsLoading(true);
-        const data = await sidekitService.getListing(id);
-        if (data) setListing(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchListing();
+    if (!id) return;
+    sidekitService.getListing(id).then((data) => {
+      if (data) setListing(data);
+      setIsLoading(false);
+    }).catch(() => setIsLoading(false));
 
-    // Default dates
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const dayAfter = new Date();
-    dayAfter.setDate(dayAfter.getDate() + 2);
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+    const dayAfter = new Date(); dayAfter.setDate(dayAfter.getDate() + 2);
     setNeededFrom(tomorrow.toISOString().split('T')[0]);
     setNeededTo(dayAfter.toISOString().split('T')[0]);
   }, [id]);
 
-  const handleBookingSubmit = async (e: React.FormEvent) => {
+  const handleRequest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!listing) return;
-
-    // Idempotent protection
-    if (isSubmitting) return;
-
+    if (!listing || submitting) return;
+    setSubmitting(true); setSubmitError('');
     try {
-      setIsSubmitting(true);
-      setSubmitError(null);
-
       const kind = listing.mode === 'lend' ? 'borrow' : listing.mode === 'rent' ? 'rent' : 'buy';
-
       await sidekitService.createRequest({
-        listingId: listing.id,
-        kind,
-        requestedQuantity,
+        listingId: listing.id, kind, requestedQuantity,
         neededFrom: kind !== 'buy' ? neededFrom : undefined,
         neededTo: kind !== 'buy' ? neededTo : undefined,
         note: requestNote.trim() || undefined,
       });
-
-      setSubmitSuccess('Booking request sent to owner! Tracking available under My Requests.');
-      setTimeout(() => {
-        setIsRequestModalOpen(false);
-        setSubmitSuccess(null);
-        navigate('/my/requests');
-      }, 1500);
-    } catch (err: any) {
-      setSubmitError(err.message || 'Failed to submit booking request.');
-    } finally {
-      setIsSubmitting(false);
-    }
+      setSubmitSuccess('Request sent! Tracking in My Requests.');
+      setTimeout(() => { setIsRequestOpen(false); navigate('/my/requests'); }, 1500);
+    } catch (err: any) { setSubmitError(err.message || 'Failed to send request.'); }
+    setSubmitting(false);
   };
 
-  const handleReportListing = async (e: React.FormEvent) => {
+  const handleReport = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!listing) return;
     try {
       const res = await sidekitService.reportListing(listing.id, reportReason);
-      setReportSuccess(
-        res.hidden
-          ? 'Listing has received 3+ reports and has been temporarily hidden for admin review.'
-          : 'Report submitted for review.'
-      );
-      setTimeout(() => {
-        setIsReportModalOpen(false);
-        setReportSuccess(null);
-        if (res.hidden) {
-          navigate('/browse');
-        }
-      }, 2000);
-    } catch (err: any) {
-      alert(err.message || 'Failed to report listing.');
-    }
+      setReportSuccess(res.hidden ? 'Listing hidden after 3+ reports.' : 'Report submitted.');
+      setTimeout(() => { setIsReportOpen(false); if (res.hidden) navigate('/browse'); }, 2000);
+    } catch (err: any) { alert(err.message); }
   };
 
-  if (isLoading) {
-    return <div className="max-w-4xl mx-auto py-20 text-center text-xs text-ink-muted">Loading listing...</div>;
-  }
-
-  if (!listing) {
-    return (
-      <div className="max-w-4xl mx-auto py-20 text-center space-y-4">
-        <h2 className="text-xl font-bold text-ink">Listing not found</h2>
-        <Link to="/browse" className="text-evergreen hover:underline text-xs font-semibold">
-          ← Back to Community Catalog
-        </Link>
-      </div>
-    );
-  }
+  if (isLoading) return <div className="max-w-4xl mx-auto py-20 text-center text-sm text-ink-muted">Loading...</div>;
+  if (!listing) return (
+    <div className="max-w-4xl mx-auto py-20 text-center space-y-4">
+      <p className="text-ink-muted">Listing not found.</p>
+      <Link to="/browse" className="text-sm text-evergreen font-semibold hover:underline">← Browse Catalog</Link>
+    </div>
+  );
 
   const isOwner = currentUser?.id === listing.ownerId;
-  const isLend = listing.mode === 'lend';
-  const isRent = listing.mode === 'rent';
+  const badge = modeBadge(listing.mode);
   const isSell = listing.mode === 'sell_used';
+  const priceDisplay = listing.mode === 'lend'
+    ? <span className="text-2xl font-bold text-emerald-600">₹0 <span className="text-sm font-normal text-ink-muted">Free Borrow</span></span>
+    : listing.price === null
+    ? <span className="text-sm text-ink-muted italic">{PRICE_NOT_AVAILABLE} — ask the owner</span>
+    : <span className="text-2xl font-bold text-ink">₹{listing.price}<span className="text-sm font-normal text-ink-muted">{listing.priceUnit === 'day' ? '/day' : ''}</span></span>;
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
-      {/* Back button */}
-      <div>
-        <button
-          onClick={() => navigate(-1)}
-          className="text-xs font-semibold text-ink-muted hover:text-ink flex items-center gap-1.5"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Back to results</span>
-        </button>
-      </div>
+      <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink">
+        <ArrowLeft className="w-3.5 h-3.5" />
+        Back
+      </button>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Photos Column */}
-        <div className="space-y-4">
-          <div className="aspect-[4/3] rounded-3xl bg-surface-secondary overflow-hidden border border-surface-border relative shadow-sm">
-            <img
-              src={listing.photos[0]}
-              alt={listing.title}
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute top-3 left-3 flex items-center gap-2">
-              <SampleBadge size="md" />
-              {isLend ? (
-                <span className="text-xs font-extrabold px-2.5 py-1 rounded bg-emerald-600 text-white uppercase tracking-wider">
-                  FREE BORROW
-                </span>
-              ) : isRent ? (
-                <span className="text-xs font-bold px-2.5 py-1 rounded bg-blue-600 text-white uppercase tracking-wider">
-                  RENTAL
-                </span>
-              ) : (
-                <span className="text-xs font-bold px-2.5 py-1 rounded bg-purple-600 text-white uppercase tracking-wider">
-                  PRE-OWNED SALE
-                </span>
-              )}
-            </div>
+        {/* Photo */}
+        <div className="relative rounded-2xl overflow-hidden border border-surface-border bg-surface-secondary aspect-[4/3]">
+          <img src={listing.photos[0]} alt={listing.title} className="w-full h-full object-cover" />
+          <div className="absolute top-3 left-3 flex gap-2">
+            {listing.isSample && <SampleBadge />}
+            <span className={`text-[11px] font-bold px-2 py-0.5 rounded uppercase tracking-wide ${badge.cls}`}>
+              {badge.label}
+            </span>
           </div>
         </div>
 
-        {/* Details Column */}
-        <div className="space-y-6">
+        {/* Details */}
+        <div className="space-y-5">
           <div>
-            <div className="flex items-center justify-between text-xs text-ink-muted mb-1">
-              <span className="capitalize font-semibold text-evergreen">{listing.category}</span>
-              <span className="font-mono">ID: {listing.id}</span>
+            <p className="text-xs font-semibold text-evergreen uppercase tracking-wider mb-1 capitalize">{listing.category}</p>
+            <h1 className="text-xl font-bold text-ink leading-snug">{listing.title}</h1>
+            <div className="mt-2">{priceDisplay}</div>
+          </div>
+
+          <p className="text-sm text-ink-muted leading-relaxed">{listing.description}</p>
+
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            <div className="p-3 bg-surface-secondary rounded-xl">
+              <span className="text-ink-muted block">Condition</span>
+              <span className="font-semibold text-ink capitalize mt-0.5 block">{listing.condition.replace('_', ' ')}</span>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-ink">{listing.title}</h1>
-            <div className="mt-2 flex items-center gap-3">
-              <div className="text-2xl font-black text-ink">
-                {isLend ? (
-                  <span className="text-evergreen">₹0 (Free Borrow)</span>
-                ) : listing.price === null ? (
-                  <span className="text-sm font-semibold text-ink-muted">Price not available (ask owner)</span>
-                ) : (
-                  `₹${listing.price}${listing.priceUnit === 'day' ? ' / day' : ''}`
-                )}
-              </div>
+            <div className="p-3 bg-surface-secondary rounded-xl">
+              <span className="text-ink-muted block">Available</span>
+              <span className="font-semibold text-ink mt-0.5 block">{listing.totalQuantity} unit{listing.totalQuantity !== 1 ? 's' : ''}</span>
+            </div>
+            <div className="p-3 bg-surface-secondary rounded-xl">
+              <span className="text-ink-muted block">Owner</span>
+              <span className="font-semibold text-ink mt-0.5 block">{listing.ownerDisplayName}</span>
+            </div>
+            <div className="p-3 bg-surface-secondary rounded-xl">
+              <span className="text-ink-muted block">Tower</span>
+              <span className="font-semibold text-ink mt-0.5 block">{listing.ownerTower}</span>
             </div>
           </div>
 
-          <p className="text-xs sm:text-sm text-ink-muted leading-relaxed whitespace-pre-line">
-            {listing.description}
-          </p>
-
-          {/* Quick Specifications */}
-          <div className="p-4 bg-surface rounded-2xl border border-surface-border grid grid-cols-2 gap-3 text-xs">
-            <div>
-              <span className="text-ink-muted block text-[11px]">Condition</span>
-              <span className="font-bold text-ink capitalize">{listing.condition.replace('_', ' ')}</span>
-            </div>
-            <div>
-              <span className="text-ink-muted block text-[11px]">Quantity Available</span>
-              <span className="font-bold text-ink">{listing.totalQuantity} item(s)</span>
-            </div>
-            <div>
-              <span className="text-ink-muted block text-[11px]">Owner Location</span>
-              <span className="font-bold text-ink">{listing.ownerTower}</span>
-            </div>
-            <div>
-              <span className="text-ink-muted block text-[11px]">Contact Privacy</span>
-              <span className="font-bold text-emerald-700">Masked until accepted</span>
-            </div>
-          </div>
-
-          {/* Pickup & Comfort Rules */}
           {listing.pickupNote && (
-            <div className="p-3.5 bg-surface-secondary/70 rounded-2xl border border-surface-border text-xs space-y-1">
-              <span className="font-bold text-ink">Pickup Coordination:</span>
-              <p className="text-ink-muted">{listing.pickupNote}</p>
+            <div className="p-3 bg-surface border border-surface-border rounded-xl text-xs">
+              <span className="font-semibold text-ink block mb-1">Pickup</span>
+              <span className="text-ink-muted">{listing.pickupNote}</span>
             </div>
           )}
 
-          {/* Request Action Button */}
-          <div className="pt-2 space-y-3">
+          {listing.comfortRules && Object.keys(listing.comfortRules).some((k) => (listing.comfortRules as any)[k]) && (
+            <div className="p-3 bg-surface border border-surface-border rounded-xl text-xs space-y-1">
+              <span className="font-semibold text-ink block">Owner Rules</span>
+              {listing.comfortRules.returnClean && <p className="text-ink-muted">· Return item clean</p>}
+              {listing.comfortRules.noCommercialUse && <p className="text-ink-muted">· Personal use only</p>}
+              {listing.comfortRules.depositRequired && (
+                <p className="text-ink-muted">· Deposit: ₹{listing.comfortRules.depositAmount}</p>
+              )}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="space-y-2 pt-1">
             {isOwner ? (
-              // FIX-REQ-07: Own Listing prevention
-              <div className="p-4 bg-surface-secondary rounded-2xl border border-surface-border flex items-center justify-between">
-                <span className="text-xs font-semibold text-ink-muted">This is your listing</span>
-                <Link
-                  to={`/my/listings/${listing.id}/edit`}
-                  className="px-4 py-2 bg-surface hover:bg-surface-border border border-surface-border text-xs font-bold rounded-xl text-ink flex items-center gap-1.5"
-                >
+              <div className="flex items-center justify-between p-3 bg-surface-secondary rounded-xl border border-surface-border text-xs">
+                <span className="text-ink-muted">This is your listing</span>
+                <Link to={`/my/listings/${listing.id}/edit`}
+                  className="flex items-center gap-1 text-ink font-semibold hover:text-evergreen">
                   <Edit className="w-3.5 h-3.5" />
-                  <span>Edit Listing</span>
+                  Edit
                 </Link>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => setIsRequestModalOpen(true)}
-                className="w-full py-3.5 bg-evergreen hover:bg-evergreen-dark text-white rounded-xl font-bold text-sm transition-colors shadow-sm"
-              >
-                {isLend ? 'Request Free Borrow' : isRent ? 'Request Rental Booking' : 'Request to Buy'}
+              <button onClick={() => setIsRequestOpen(true)}
+                className="w-full py-3 bg-evergreen hover:bg-evergreen-dark text-white rounded-xl font-semibold text-sm transition-colors">
+                {listing.mode === 'lend' ? 'Request Free Borrow' : listing.mode === 'rent' ? 'Request Rental' : 'Request to Buy'}
               </button>
             )}
 
-            <div className="flex items-center justify-between text-xs pt-1">
-              <button
-                type="button"
-                onClick={() => setIsReportModalOpen(true)}
-                className="text-ink-muted hover:text-red-600 flex items-center gap-1"
-              >
-                <Flag className="w-3.5 h-3.5" />
-                <span>Report Inaccurate or Unsafe Listing</span>
-              </button>
-            </div>
+            <button onClick={() => setIsReportOpen(true)}
+              className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-rose-600 transition-colors">
+              <Flag className="w-3 h-3" />
+              Report listing
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Booking Modal */}
-      {isRequestModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm">
-          <div className="bg-surface rounded-3xl max-w-md w-full p-6 shadow-2xl border border-surface-border animate-in fade-in zoom-in-95 duration-150">
-            <h3 className="text-lg font-bold text-ink">
-              Send Request to {listing.ownerDisplayName}
-            </h3>
-            <p className="text-xs text-ink-muted mt-1 mb-4">{listing.title}</p>
+      {/* Request Modal */}
+      {isRequestOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-ink/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl border border-surface-border">
+            <h3 className="text-base font-bold text-ink mb-1">Send Request</h3>
+            <p className="text-xs text-ink-muted mb-4">{listing.title} · {listing.ownerDisplayName}</p>
 
             {submitSuccess ? (
-              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-2 text-xs text-emerald-800">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                <span>{submitSuccess}</span>
+              <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                {submitSuccess}
               </div>
             ) : (
-              <form onSubmit={handleBookingSubmit} className="space-y-4">
+              <form onSubmit={handleRequest} className="space-y-3">
                 {submitError && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
+                  <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                     {submitError}
                   </div>
                 )}
@@ -299,73 +210,38 @@ export const ListingDetailPage: React.FC = () => {
                 {!isSell && (
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-bold text-ink uppercase tracking-wider mb-1">
-                        Needed From *
-                      </label>
-                      <input
-                        type="date"
-                        value={neededFrom}
-                        onChange={(e) => setNeededFrom(e.target.value)}
-                        className="w-full px-2.5 py-1.5 text-xs bg-surface-secondary border border-surface-border rounded-xl focus-ring font-mono"
-                        required
-                      />
+                      <label className="block text-xs font-semibold text-ink mb-1">From *</label>
+                      <input type="date" value={neededFrom} onChange={(e) => setNeededFrom(e.target.value)}
+                        className="w-full px-2.5 py-1.5 text-xs bg-surface-secondary border border-surface-border rounded-lg focus-ring font-mono" required />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold text-ink uppercase tracking-wider mb-1">
-                        Needed To *
-                      </label>
-                      <input
-                        type="date"
-                        value={neededTo}
-                        onChange={(e) => setNeededTo(e.target.value)}
-                        className="w-full px-2.5 py-1.5 text-xs bg-surface-secondary border border-surface-border rounded-xl focus-ring font-mono"
-                        required
-                      />
+                      <label className="block text-xs font-semibold text-ink mb-1">To *</label>
+                      <input type="date" value={neededTo} onChange={(e) => setNeededTo(e.target.value)}
+                        className="w-full px-2.5 py-1.5 text-xs bg-surface-secondary border border-surface-border rounded-lg focus-ring font-mono" required />
                     </div>
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-[11px] font-bold text-ink uppercase tracking-wider mb-1">
-                    Quantity
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max={listing.totalQuantity}
-                    value={requestedQuantity}
-                    onChange={(e) => setRequestedQuantity(parseInt(e.target.value) || 1)}
-                    className="w-full px-2.5 py-1.5 text-xs bg-surface-secondary border border-surface-border rounded-xl focus-ring font-mono"
-                  />
+                  <label className="block text-xs font-semibold text-ink mb-1">Quantity</label>
+                  <input type="number" min="1" max={listing.totalQuantity} value={requestedQuantity}
+                    onChange={(e) => setRequestedQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-24 px-2.5 py-1.5 text-xs bg-surface-secondary border border-surface-border rounded-lg focus-ring font-mono" />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-ink uppercase tracking-wider mb-1">
-                    Pickup Note / Message to Owner
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={requestNote}
-                    onChange={(e) => setRequestNote(e.target.value)}
-                    placeholder="Hi! I need this for half a day to mount my curtain rods..."
-                    className="w-full p-2.5 text-xs bg-surface-secondary border border-surface-border rounded-xl focus-ring"
-                  />
+                  <label className="block text-xs font-semibold text-ink mb-1">Note to owner</label>
+                  <textarea rows={2} value={requestNote} onChange={(e) => setRequestNote(e.target.value)}
+                    placeholder="Hi, I need this for..."
+                    className="w-full p-2.5 text-xs bg-surface-secondary border border-surface-border rounded-lg focus-ring resize-none" />
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsRequestModalOpen(false)}
-                    className="px-4 py-2 text-xs font-semibold text-ink-muted hover:bg-surface-secondary rounded-xl"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="px-5 py-2 text-xs font-semibold bg-evergreen hover:bg-evergreen-dark text-white rounded-xl shadow-sm disabled:opacity-50"
-                  >
-                    {isSubmitting ? 'Sending Request...' : 'Send Request'}
+                <div className="flex justify-end gap-2 pt-1">
+                  <button type="button" onClick={() => setIsRequestOpen(false)}
+                    className="px-4 py-2 text-xs text-ink-muted hover:bg-surface-secondary rounded-lg">Cancel</button>
+                  <button type="submit" disabled={submitting}
+                    className="px-5 py-2 text-xs font-semibold bg-evergreen hover:bg-evergreen-dark text-white rounded-xl disabled:opacity-50">
+                    {submitting ? 'Sending...' : 'Send Request'}
                   </button>
                 </div>
               </form>
@@ -374,62 +250,31 @@ export const ListingDetailPage: React.FC = () => {
         </div>
       )}
 
-      {/* Report Listing Modal */}
-      {isReportModalOpen && (
+      {/* Report Modal */}
+      {isReportOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm">
-          <div className="bg-surface rounded-3xl max-w-md w-full p-6 shadow-2xl border border-surface-border animate-in fade-in zoom-in-95 duration-150">
-            <h3 className="text-base font-bold text-ink flex items-center gap-2">
-              <ShieldAlert className="w-5 h-5 text-amber-600" />
-              <span>Report Community Listing</span>
-            </h3>
-            <p className="text-xs text-ink-muted mt-1 mb-4">
-              Help maintain a safe and accurate society sharing catalog. 3 reports will automatically hide this listing for admin review.
-            </p>
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-surface-border">
+            <h3 className="text-sm font-bold text-ink mb-1">Report Listing</h3>
+            <p className="text-xs text-ink-muted mb-4">3 distinct reports will automatically hide this listing.</p>
 
             {reportSuccess ? (
-              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-800">
-                {reportSuccess}
-              </div>
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800">{reportSuccess}</div>
             ) : (
-              <form onSubmit={handleReportListing} className="space-y-4">
-                <div>
-                  <label className="block text-[11px] font-bold text-ink uppercase tracking-wider mb-2">
-                    Reason for report
-                  </label>
-                  <div className="space-y-2 text-xs text-ink">
-                    {[
-                      'Unsafe, damaged or broken tool',
-                      'Prohibited or dangerous substance',
-                      'Inaccurate description or commercial spam',
-                      'Unreasonable pricing or non-resident listing',
-                    ].map((r) => (
-                      <label key={r} className="flex items-center gap-2 p-2 rounded-xl hover:bg-surface-secondary cursor-pointer">
-                        <input
-                          type="radio"
-                          name="reportReason"
-                          value={r}
-                          checked={reportReason === r}
-                          onChange={(e) => setReportReason(e.target.value)}
-                          className="text-evergreen focus:ring-evergreen"
-                        />
-                        <span>{r}</span>
-                      </label>
-                    ))}
-                  </div>
+              <form onSubmit={handleReport} className="space-y-3">
+                <div className="space-y-1.5">
+                  {['Unsafe or broken tool', 'Prohibited item', 'Inaccurate description', 'Unreasonable pricing'].map((r) => (
+                    <label key={r} className="flex items-center gap-2 p-2 rounded-lg hover:bg-surface-secondary cursor-pointer text-xs">
+                      <input type="radio" name="rr" value={r} checked={reportReason === r}
+                        onChange={(e) => setReportReason(e.target.value)} className="text-evergreen" />
+                      {r}
+                    </label>
+                  ))}
                 </div>
-
-                <div className="flex items-center justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsReportModalOpen(false)}
-                    className="px-4 py-2 text-xs font-semibold text-ink-muted hover:bg-surface-secondary rounded-xl"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-sm"
-                  >
+                <div className="flex justify-end gap-2">
+                  <button type="button" onClick={() => setIsReportOpen(false)}
+                    className="px-4 py-2 text-xs text-ink-muted hover:bg-surface-secondary rounded-lg">Cancel</button>
+                  <button type="submit"
+                    className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-xl">
                     Submit Report
                   </button>
                 </div>
@@ -441,4 +286,3 @@ export const ListingDetailPage: React.FC = () => {
     </div>
   );
 };
-

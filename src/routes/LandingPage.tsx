@@ -1,192 +1,152 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import {
-  Sparkles,
-  ArrowRight,
-  ShieldCheck,
-  RotateCcw,
-  Zap,
-  CheckCircle2,
-  Users,
-  Search,
-  Wrench,
-  TreePine,
-  Sparkle,
-  Laptop,
-} from 'lucide-react';
-import { SampleBadge } from '../components/shared/SampleBadge';
-import { useAuth } from '../context/AuthContext';
+import { Search, ArrowRight, Zap, Users, Leaf } from 'lucide-react';
 
 export const LandingPage: React.FC = () => {
-  const [taskInput, setTaskInput] = useState('');
+  const [task, setTask] = useState('');
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
 
-  const handleStartTask = (e: React.FormEvent) => {
+  const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!taskInput.trim()) return;
-    navigate(`/plan/new?task=${encodeURIComponent(taskInput.trim())}`);
+    if (!task.trim()) return;
+    navigate(`/plan/new?task=${encodeURIComponent(task.trim())}`);
   };
 
-  const sampleTasks = [
-    { text: 'Balcony deep clean and AC outdoor unit wash', tag: 'Cleaning' },
-    { text: 'Mount heavy bookshelf & frame on living room wall', tag: 'DIY & Tools' },
-    { text: 'Prune balcony hedge bushes and repot garden plants', tag: 'Gardening' },
-    { text: 'Laptop running hot and lagging on startup', tag: 'Electronics' },
+  const quickTasks = [
+    'Deep clean balcony & AC unit',
+    'Mount shelves on wall',
+    'Trim balcony hedge',
+    'Laptop slow startup fix',
   ];
 
   return (
-    <div className="space-y-16 py-8 sm:py-12">
-      {/* Hero Section */}
-      <section className="max-w-4xl mx-auto text-center px-4 space-y-6">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-evergreen-light text-evergreen-dark text-xs font-semibold border border-evergreen/20">
-          <Sparkles className="w-3.5 h-3.5 text-evergreen" />
-          <span>Palm Grove Estate · 400+ Families Sharing Assets</span>
+    <div className="max-w-4xl mx-auto px-4 pt-16 pb-24 space-y-20">
+      {/* Hero */}
+      <div className="text-center space-y-6">
+        <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-evergreen bg-evergreen/8 px-3 py-1.5 rounded-full border border-evergreen/20"
+          style={{ background: 'rgba(23,107,84,0.06)' }}
+        >
+          Palm Grove Estate · Community Tools
         </div>
 
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-ink leading-[1.15]">
-          Start from what you need done. <br className="hidden sm:inline" />
-          <span className="text-evergreen">We'll find the tools in your society.</span>
+        <h1 className="text-4xl sm:text-5xl font-bold text-ink leading-tight tracking-tight">
+          Describe your task.<br />
+          <span className="text-evergreen">Borrow what you need.</span>
         </h1>
 
-        <p className="text-base sm:text-lg text-ink-muted max-w-2xl mx-auto leading-relaxed">
-          Sidekit turns any household project into a step-by-step checklist, subtracts what you already own, and matches the rest with trusted neighbours — before you buy brand new.
+        <p className="text-ink-muted text-base max-w-xl mx-auto leading-relaxed">
+          Sidekit builds your requirements checklist, subtracts what you own, and finds the rest from neighbours — before you buy anything new.
         </p>
 
-        {/* Task Input Card */}
-        <form onSubmit={handleStartTask} className="max-w-2xl mx-auto mt-8">
-          <div className="p-2 sm:p-2.5 bg-surface rounded-2xl shadow-lg border border-surface-border flex flex-col sm:flex-row gap-2">
-            <div className="flex-1 flex items-center gap-3 px-3">
-              <Search className="w-5 h-5 text-ink-muted shrink-0" />
+        {/* Search form */}
+        <form onSubmit={onSubmit} className="max-w-2xl mx-auto">
+          <div className="flex gap-2 p-1.5 bg-white border border-surface-border rounded-2xl shadow-sm focus-within:border-evergreen/50 focus-within:shadow-md transition-all">
+            <div className="flex items-center gap-2 flex-1 px-3">
+              <Search className="w-4 h-4 text-ink-muted shrink-0" />
               <input
                 type="text"
-                value={taskInput}
-                onChange={(e) => setTaskInput(e.target.value)}
-                placeholder="What do you want to get done? (e.g. Clean balcony, mount TV)"
-                className="w-full text-sm sm:text-base bg-transparent border-none outline-none text-ink placeholder:text-ink-subtle focus:ring-0"
+                value={task}
+                onChange={(e) => setTask(e.target.value)}
+                placeholder="e.g. Clean balcony, mount TV, fix laptop..."
+                className="w-full text-sm bg-transparent border-none outline-none text-ink placeholder:text-ink-subtle"
+                aria-label="Describe your task"
               />
             </div>
             <button
               type="submit"
-              className="py-3 px-6 bg-evergreen hover:bg-evergreen-dark text-white rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-2 shadow-sm shrink-0"
+              className="shrink-0 px-5 py-2.5 bg-evergreen hover:bg-evergreen-dark text-white rounded-xl font-semibold text-sm transition-colors flex items-center gap-2"
             >
-              <span>Build Checklist</span>
+              Start
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </form>
 
-        {/* Quick Suggestion Chips */}
-        <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-          <span className="text-xs text-ink-muted">Popular tasks:</span>
-          {sampleTasks.map((t, idx) => (
+        {/* Quick chips */}
+        <div className="flex flex-wrap justify-center gap-2">
+          {quickTasks.map((t) => (
             <button
-              key={idx}
-              onClick={() => navigate(`/plan/new?task=${encodeURIComponent(t.text)}`)}
-              className="text-xs px-3 py-1.5 bg-surface hover:bg-surface-secondary text-ink rounded-lg border border-surface-border transition-colors flex items-center gap-1.5"
+              key={t}
+              onClick={() => navigate(`/plan/new?task=${encodeURIComponent(t)}`)}
+              className="text-xs px-3 py-1.5 bg-surface border border-surface-border rounded-lg text-ink-muted hover:text-ink hover:border-evergreen/30 transition-colors"
             >
-              <span>{t.text}</span>
+              {t}
             </button>
           ))}
         </div>
-      </section>
+      </div>
 
-      {/* How it works 3-Step Pillar */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-xl mx-auto mb-10 space-y-2">
-          <h2 className="text-2xl font-bold text-ink tracking-tight">The Asset-Sharing Loop</h2>
-          <p className="text-sm text-ink-muted">
-            Designed specifically for apartment towers: fast pickup, zero delivery fees, total trust.
-          </p>
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-4 text-center">
+        {[
+          { value: '₹1.84L', label: 'Community Savings' },
+          { value: '142+', label: 'Completed Loans' },
+          { value: '30', label: 'Items Listed' },
+        ].map(({ value, label }) => (
+          <div key={label} className="p-6 bg-surface rounded-2xl border border-surface-border">
+            <div className="text-2xl sm:text-3xl font-bold text-ink">{value}</div>
+            <div className="text-xs text-ink-muted mt-1 uppercase tracking-wider font-medium">{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* How it works */}
+      <div className="space-y-6">
+        <h2 className="text-lg font-bold text-ink text-center">How it works</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            {
+              icon: Zap,
+              step: '01',
+              title: 'Describe your task',
+              desc: 'Plain English or Hinglish. AI builds your complete tool checklist.',
+            },
+            {
+              icon: Search,
+              step: '02',
+              title: 'Subtract what you have',
+              desc: 'Tick off owned items. Only search for what you actually need.',
+            },
+            {
+              icon: Users,
+              step: '03',
+              title: 'Borrow from neighbours',
+              desc: 'Free borrows first, then affordable rentals, then buy used.',
+            },
+          ].map(({ icon: Icon, step, title, desc }) => (
+            <div key={step} className="p-5 bg-surface rounded-2xl border border-surface-border space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-ink-muted font-mono">{step}</span>
+                <div className="w-8 h-8 rounded-lg bg-evergreen/8 text-evergreen flex items-center justify-center"
+                  style={{ background: 'rgba(23,107,84,0.06)' }}>
+                  <Icon className="w-4 h-4" />
+                </div>
+              </div>
+              <h3 className="text-sm font-bold text-ink">{title}</h3>
+              <p className="text-xs text-ink-muted leading-relaxed">{desc}</p>
+            </div>
+          ))}
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="p-6 bg-surface rounded-2xl border border-surface-border shadow-sm space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-evergreen-light text-evergreen flex items-center justify-center font-bold">
-              1
-            </div>
-            <h3 className="text-base font-bold text-ink">1. Intent to Checklist</h3>
-            <p className="text-xs text-ink-muted leading-relaxed">
-              Describe your task in everyday words. Sidekit generates the complete tool and consumable requirements automatically.
-            </p>
-          </div>
-
-          <div className="p-6 bg-surface rounded-2xl border border-surface-border shadow-sm space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-evergreen-light text-evergreen flex items-center justify-center font-bold">
-              2
-            </div>
-            <h3 className="text-base font-bold text-ink">2. Subtract What You Have</h3>
-            <p className="text-xs text-ink-muted leading-relaxed">
-              Tick off items sitting in your utility cabinet. You only search and coordinate for the items you actually lack.
-            </p>
-          </div>
-
-          <div className="p-6 bg-surface rounded-2xl border border-surface-border shadow-sm space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-evergreen-light text-evergreen flex items-center justify-center font-bold">
-              3
-            </div>
-            <h3 className="text-base font-bold text-ink">3. Transparent Comparison</h3>
-            <p className="text-xs text-ink-muted leading-relaxed">
-              Compare free neighbourhood borrow, modest daily rentals, pre-owned purchases, and local retail stores in one clean matrix.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Society Stats Counter */}
-      <section className="bg-surface border-y border-surface-border py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-            <div>
-              <div className="text-3xl sm:text-4xl font-extrabold text-evergreen">₹1,84,500</div>
-              <div className="text-xs font-semibold text-ink-muted mt-1 uppercase tracking-wider">
-                Community Savings
-              </div>
-            </div>
-            <div>
-              <div className="text-3xl sm:text-4xl font-extrabold text-ink">142+</div>
-              <div className="text-xs font-semibold text-ink-muted mt-1 uppercase tracking-wider">
-                Completed Loans
-              </div>
-            </div>
-            <div>
-              <div className="text-3xl sm:text-4xl font-extrabold text-ink">86</div>
-              <div className="text-xs font-semibold text-ink-muted mt-1 uppercase tracking-wider">
-                Active Towers & Flats
-              </div>
-            </div>
-            <div>
-              <div className="text-3xl sm:text-4xl font-extrabold text-lime-600">1,240 kg</div>
-              <div className="text-xs font-semibold text-ink-muted mt-1 uppercase tracking-wider">
-                CO₂ Emissions Avoided
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Call to action */}
-      <section className="max-w-4xl mx-auto px-4 text-center space-y-4">
-        <h2 className="text-2xl font-bold text-ink">Got tools or equipment sitting idle?</h2>
-        <p className="text-sm text-ink-muted max-w-lg mx-auto">
-          Help a neighbour and earn goodwill or a modest rental. Listing takes under 60 seconds with pre-populated specs.
-        </p>
-        <div className="pt-2 flex justify-center gap-3">
+      {/* CTAs */}
+      <div className="text-center space-y-3">
+        <p className="text-sm text-ink-muted">Have tools sitting idle?</p>
+        <div className="flex justify-center gap-3">
           <Link
             to="/my/listings/new"
-            className="py-2.5 px-6 bg-evergreen hover:bg-evergreen-dark text-white rounded-xl font-semibold text-sm transition-colors shadow-sm"
+            className="px-5 py-2.5 bg-evergreen hover:bg-evergreen-dark text-white rounded-xl font-semibold text-sm transition-colors"
           >
             List an Item
           </Link>
           <Link
             to="/browse"
-            className="py-2.5 px-6 bg-surface hover:bg-surface-secondary text-ink rounded-xl font-semibold text-sm border border-surface-border transition-colors"
+            className="px-5 py-2.5 bg-surface border border-surface-border hover:bg-surface-secondary text-ink rounded-xl font-semibold text-sm transition-colors"
           >
-            Explore Catalog
+            Browse Catalog
           </Link>
         </div>
-      </section>
+      </div>
     </div>
   );
 };
-

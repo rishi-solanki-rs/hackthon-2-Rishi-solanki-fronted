@@ -1,228 +1,191 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import {
-  CheckCircle,
-  Plus,
-  Trash2,
-  ArrowRight,
-  ShieldAlert,
-  Sparkles,
-  Info,
-  Check,
-  CheckCircle2,
-  PackageCheck,
-  Wrench,
-} from 'lucide-react';
-import { Plan, PlanChecklistItem } from '@sidekit/shared';
+import { ArrowRight, Plus, Trash2, Check, PackageCheck, AlertCircle, Sparkles } from 'lucide-react';
+import { Plan, PlanChecklistItem, evaluateItemSafety, isItemSuppressedByGate } from '@sidekit/shared';
 import { sidekitService } from '../services';
+import { SafetyGateNotice } from '../components/shared/SafetyGateNotice';
 
 export const PlanChecklistPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-
   const [plan, setPlan] = useState<Plan | null>(null);
   const [items, setItems] = useState<PlanChecklistItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-
-  // New custom item modal state
-  const [isAddingItem, setIsAddingItem] = useState(false);
-  const [newItemName, setNewItemName] = useState('');
-  const [newItemQty, setNewItemQty] = useState(1);
-  const [newItemConsumable, setNewItemConsumable] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newQty, setNewQty] = useState(1);
+  const [newConsumable, setNewConsumable] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchPlan = async () => {
-      if (!id) return;
-      try {
-        setIsLoading(true);
-        const data = await sidekitService.getPlan(id);
-        if (data) {
-          setPlan(data);
-          setItems(data.items);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchPlan();
+    if (!id) return;
+    sidekitService.getPlan(id).then((data) => {
+      if (data) { setPlan(data); setItems(data.items); }
+      setIsLoading(false);
+    }).catch(() => setIsLoading(false));
   }, [id]);
 
-  const handleToggleOwned = (index: number) => {
+  const toggle = (i: number) => {
     const next = [...items];
-    const item = next[index];
-    if (item.ownedQuantity >= item.neededQuantity) {
-      item.ownedQuantity = 0;
-    } else {
-      item.ownedQuantity = item.neededQuantity;
-    }
+    const item = next[i];
+    item.ownedQuantity = item.ownedQuantity >= item.neededQuantity ? 0 : item.neededQuantity;
     item.missingQuantity = Math.max(0, item.neededQuantity - item.ownedQuantity);
     setItems(next);
   };
 
-  const handleUpdateQty = (index: number, delta: number) => {
+  const adjustQty = (i: number, delta: number) => {
     const next = [...items];
-    const item = next[index];
+    const item = next[i];
     item.neededQuantity = Math.max(1, item.neededQuantity + delta);
     item.missingQuantity = Math.max(0, item.neededQuantity - item.ownedQuantity);
     setItems(next);
   };
 
-  const handleRemoveItem = (index: number) => {
-    const next = items.filter((_, i) => i !== index);
-    setItems(next);
-  };
+  const removeItem = (i: number) => setItems(items.filter((_, idx) => idx !== i));
 
-  const handleAddCustomItem = (e: React.FormEvent) => {
+  const addItem = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newItemName.trim()) return;
-
-    const newItem: PlanChecklistItem = {
+    const name = newName.trim();
+    if (!name) return;
+    const itemKey = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    const safety = evaluateItemSafety(name);
+    if (safety.isBlocked) {
+      setAddError(safety.warning || 'This item is not allowed on Sidekit.');
+      return;
+    }
+    if (isItemSuppressedByGate({ itemKey, name }, plan?.safetyGate)) {
+      setAddError('This tool is hidden for this task for safety reasons. Please hire a professional.');
+      return;
+    }
+    const isConsumable = newConsumable || safety.isConsumable;
+    setItems([...items, {
       id: `custom_${Date.now()}`,
-      itemKey: newItemName.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
-      name: newItemName.trim(),
-      neededQuantity: newItemQty,
+      itemKey,
+      name,
+      neededQuantity: newQty,
       ownedQuantity: 0,
-      missingQuantity: newItemQty,
-      reason: 'User added item',
-      isConsumable: newItemConsumable,
-      safetyClass: newItemConsumable ? 'consumable' : 'none',
+      missingQuantity: newQty,
+      reason: 'Added manually',
+      isConsumable,
+      safetyClass: isConsumable ? 'consumable' : safety.safetyClass,
       source: 'user_added',
-    };
-
-    setItems([...items, newItem]);
-    setNewItemName('');
-    setNewItemQty(1);
-    setNewItemConsumable(false);
-    setIsAddingItem(false);
+    }]);
+    setNewName(''); setNewQty(1); setNewConsumable(false); setIsAdding(false); setAddError(null);
   };
 
-  const handleProceedToOptions = async () => {
+  const proceed = async () => {
     if (!id) return;
+    setIsSaving(true);
+    setSaveError(null);
     try {
-      setIsSaving(true);
       await sidekitService.updatePlanChecklist(id, items);
       navigate(`/plan/${id}/options`);
-    } catch (err) {
-      console.error(err);
-    } finally {
+    } catch (err: any) {
+      setSaveError(err?.message || 'Could not save your checklist. Please try again.');
       setIsSaving(false);
     }
   };
 
   if (isLoading) {
-    return (
-      <div className="max-w-3xl mx-auto py-16 text-center text-ink-muted">
-        Loading checklist requirements...
-      </div>
-    );
+    return <div className="max-w-2xl mx-auto py-20 text-center text-sm text-ink-muted">Loading checklist...</div>;
   }
 
   if (!plan) {
     return (
-      <div className="max-w-3xl mx-auto py-16 text-center space-y-4">
-        <h2 className="text-xl font-bold text-ink">Plan not found</h2>
-        <Link to="/plan/new" className="text-evergreen hover:underline font-semibold text-sm">
-          Create a new plan
-        </Link>
+      <div className="max-w-2xl mx-auto py-20 text-center space-y-4">
+        <p className="text-ink-muted text-sm">Plan not found.</p>
+        <Link to="/plan/new" className="text-sm text-evergreen font-semibold hover:underline">← New Plan</Link>
       </div>
     );
   }
 
-  const missingItems = items.filter((i) => i.missingQuantity > 0);
-  const allOwned = items.length > 0 && missingItems.length === 0;
+  const missing = items.filter((i) => i.missingQuantity > 0);
+  const allOwned = items.length > 0 && missing.length === 0;
 
   return (
-    <div className="max-w-3xl mx-auto py-8 px-4 space-y-6">
+    <div className="max-w-2xl mx-auto py-10 px-4 space-y-6">
       {/* Header */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold uppercase tracking-wider text-evergreen bg-evergreen-light px-2.5 py-1 rounded-lg">
-            Step 2 · Inventory Subtraction
-          </span>
-          <span className="text-xs text-ink-muted font-mono">Plan #{plan.id.slice(0, 8)}</span>
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink">
-          {plan.taskDescription}
-        </h1>
-        <p className="text-xs sm:text-sm text-ink-muted leading-relaxed">
-          Tick off items you already own. We'll only search our community catalog for the remaining items you actually need.
+      <div className="space-y-1">
+        <div className="text-xs font-semibold text-evergreen uppercase tracking-wider">Checklist</div>
+        <h1 className="text-xl font-bold text-ink leading-snug">{plan.taskDescription}</h1>
+        <p className="text-xs text-ink-muted">
+          Tick off items you already own — we'll only find the rest.
         </p>
+        {plan.aiSource && (
+          <p className="flex items-center gap-1 text-[11px] text-ink-subtle">
+            <Sparkles className="w-3 h-3" aria-hidden="true" />
+            {plan.aiSource === 'gemini'
+              ? 'Checklist suggested by AI — review it before you continue.'
+              : 'Checklist from a standard template (AI unavailable right now).'}
+          </p>
+        )}
       </div>
 
-      {/* Checklist Table */}
-      <div className="bg-surface rounded-3xl border border-surface-border shadow-sm overflow-hidden">
-        <div className="p-4 bg-surface-secondary/50 border-b border-surface-border flex items-center justify-between">
-          <span className="text-xs font-bold text-ink uppercase tracking-wider">Required Items</span>
-          <span className="text-xs text-ink-muted">
-            {missingItems.length} of {items.length} items missing
-          </span>
-        </div>
+      {plan.safetyGate && <SafetyGateNotice gate={plan.safetyGate} />}
 
-        <div className="divide-y divide-surface-border">
-          {items.map((item, idx) => {
-            const isOwned = item.ownedQuantity >= item.neededQuantity;
-
-            return (
-              <div
-                key={item.id}
-                className={`p-4 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-                  isOwned ? 'bg-surface-secondary/30 opacity-75' : 'bg-surface'
-                }`}
-              >
-                <div className="flex items-start gap-3 flex-1 min-w-0">
+      {/* Items */}
+      <div className="bg-white rounded-2xl border border-surface-border overflow-hidden">
+        {items.length === 0 ? (
+          <div className="py-10 text-center text-sm text-ink-muted">No items. Add one below.</div>
+        ) : (
+          <div>
+            {items.map((item, idx) => {
+              const owned = item.ownedQuantity >= item.neededQuantity;
+              return (
+                <div
+                  key={item.id}
+                  className={`flex items-center gap-3 p-4 border-b border-surface-border last:border-0 transition-colors ${
+                    owned ? 'bg-surface-secondary/40' : 'bg-white'
+                  }`}
+                >
+                  {/* Checkbox */}
                   <button
                     type="button"
-                    onClick={() => handleToggleOwned(idx)}
-                    className={`mt-0.5 w-6 h-6 rounded-lg border flex items-center justify-center transition-colors shrink-0 ${
-                      isOwned
-                        ? 'bg-evergreen border-evergreen text-white'
-                        : 'border-surface-border bg-surface hover:border-evergreen text-transparent'
+                    onClick={() => toggle(idx)}
+                    className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
+                      owned ? 'bg-evergreen border-evergreen' : 'border-surface-border hover:border-evergreen'
                     }`}
-                    title={isOwned ? 'Mark as needed' : 'Mark as already owned'}
+                    aria-label={owned ? 'Mark as needed' : 'Mark as owned'}
                   >
-                    <Check className="w-4 h-4 stroke-[3]" />
+                    {owned && <Check className="w-3 h-3 text-white stroke-[3]" />}
                   </button>
 
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={`text-sm font-bold ${isOwned ? 'line-through text-ink-muted' : 'text-ink'}`}>
+                  {/* Name + reason */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-sm font-semibold ${owned ? 'line-through text-ink-muted' : 'text-ink'}`}>
                         {item.name}
                       </span>
                       {item.isConsumable && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 font-semibold">
-                          Consumable (Buy only)
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-semibold">
+                          Consumable
                         </span>
                       )}
-                      {isOwned && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 font-semibold">
-                          Already Owned
+                      {owned && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold">
+                          Owned ✓
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-ink-muted leading-relaxed">{item.reason}</p>
+                    <p className="text-xs text-ink-muted mt-0.5 leading-relaxed line-clamp-1">{item.reason}</p>
                   </div>
-                </div>
 
-                {/* Quantity Controls & Delete */}
-                <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-surface-border">
-                  <div className="flex items-center gap-2 bg-surface-secondary rounded-xl p-1 border border-surface-border">
+                  {/* Quantity control */}
+                  <div className="flex items-center gap-1 shrink-0">
                     <button
                       type="button"
-                      onClick={() => handleUpdateQty(idx, -1)}
-                      className="w-6 h-6 rounded-lg bg-surface text-ink hover:bg-surface-border flex items-center justify-center font-bold text-xs"
+                      onClick={() => adjustQty(idx, -1)}
+                      className="w-6 h-6 rounded border border-surface-border flex items-center justify-center text-ink-muted hover:text-ink text-sm"
                     >
-                      -
+                      −
                     </button>
-                    <span className="text-xs font-bold text-ink w-8 text-center font-mono">
-                      {item.neededQuantity}
-                    </span>
+                    <span className="w-6 text-center text-xs font-bold text-ink font-mono">{item.neededQuantity}</span>
                     <button
                       type="button"
-                      onClick={() => handleUpdateQty(idx, 1)}
-                      className="w-6 h-6 rounded-lg bg-surface text-ink hover:bg-surface-border flex items-center justify-center font-bold text-xs"
+                      onClick={() => adjustQty(idx, 1)}
+                      className="w-6 h-6 rounded border border-surface-border flex items-center justify-center text-ink-muted hover:text-ink text-sm"
                     >
                       +
                     </button>
@@ -230,109 +193,113 @@ export const PlanChecklistPage: React.FC = () => {
 
                   <button
                     type="button"
-                    onClick={() => handleRemoveItem(idx)}
-                    className="p-1.5 text-ink-muted hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
-                    title="Remove item"
+                    onClick={() => removeItem(idx)}
+                    className="p-1.5 text-ink-subtle hover:text-red-500 transition-colors shrink-0"
+                    aria-label="Remove item"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
-        {/* Add custom item trigger */}
-        <div className="p-4 bg-surface border-t border-surface-border">
-          {isAddingItem ? (
-            <form onSubmit={handleAddCustomItem} className="p-3 bg-surface-secondary rounded-2xl border border-surface-border space-y-3">
-              <div className="font-bold text-xs text-ink">Add Custom Checklist Item</div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        {/* Add item */}
+        <div className="p-3 border-t border-surface-border bg-surface-secondary/30">
+          {isAdding ? (
+            <form onSubmit={addItem} className="space-y-2">
+              <div className="flex gap-2">
                 <input
                   type="text"
-                  value={newItemName}
-                  onChange={(e) => setNewItemName(e.target.value)}
-                  placeholder="Item name (e.g. Safety goggles)"
-                  className="sm:col-span-2 px-3 py-1.5 text-xs bg-surface border border-surface-border rounded-xl focus-ring"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Item name"
+                  className="flex-1 px-2.5 py-1.5 text-xs bg-white border border-surface-border rounded-lg focus-ring"
                   required
+                  autoFocus
                 />
                 <input
                   type="number"
                   min="1"
-                  value={newItemQty}
-                  onChange={(e) => setNewItemQty(parseInt(e.target.value) || 1)}
-                  className="px-3 py-1.5 text-xs bg-surface border border-surface-border rounded-xl focus-ring"
-                  placeholder="Quantity"
+                  value={newQty}
+                  onChange={(e) => setNewQty(parseInt(e.target.value) || 1)}
+                  className="w-16 px-2.5 py-1.5 text-xs bg-white border border-surface-border rounded-lg focus-ring font-mono"
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="chkConsumable"
-                  checked={newItemConsumable}
-                  onChange={(e) => setNewItemConsumable(e.target.checked)}
-                  className="rounded text-evergreen focus:ring-evergreen"
-                />
-                <label htmlFor="chkConsumable" className="text-xs text-ink-muted select-none">
-                  Is this a consumable item? (e.g. tape, glue, nails)
+              {addError && (
+                <p role="alert" className="flex items-start gap-1.5 text-xs text-red-700">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" aria-hidden="true" />
+                  <span>{addError}</span>
+                </p>
+              )}
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-1.5 text-xs text-ink-muted cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={newConsumable}
+                    onChange={(e) => setNewConsumable(e.target.checked)}
+                    className="rounded text-evergreen"
+                  />
+                  Consumable item
                 </label>
-              </div>
-              <div className="flex justify-end gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setIsAddingItem(false)}
-                  className="px-3 py-1.5 text-xs text-ink-muted hover:bg-surface rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-1.5 text-xs bg-evergreen text-white font-semibold rounded-xl hover:bg-evergreen-dark"
-                >
-                  Add Item
-                </button>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => { setIsAdding(false); setAddError(null); }} className="text-xs text-ink-muted px-2 py-1 hover:bg-surface rounded">
+                    Cancel
+                  </button>
+                  <button type="submit" className="text-xs text-evergreen font-semibold px-2 py-1 hover:bg-evergreen/5 rounded">
+                    Add
+                  </button>
+                </div>
               </div>
             </form>
           ) : (
             <button
               type="button"
-              onClick={() => setIsAddingItem(true)}
-              className="text-xs text-evergreen hover:text-evergreen-dark font-semibold flex items-center gap-1.5"
+              onClick={() => setIsAdding(true)}
+              className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-evergreen font-medium transition-colors"
             >
-              <Plus className="w-4 h-4" />
-              <span>Add another item to checklist</span>
+              <Plus className="w-3.5 h-3.5" />
+              Add item
             </button>
           )}
         </div>
       </div>
 
-      {/* All Owned Banner */}
+      {/* All owned banner */}
       {allOwned && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-900">
-          <PackageCheck className="w-6 h-6 text-emerald-600 shrink-0" />
-          <div className="text-xs leading-relaxed">
-            <strong>All items owned!</strong> You have all required equipment sitting in your home. You're ready to complete this task without borrowing or purchasing anything.
-          </div>
+        <div className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-sm text-emerald-800">
+          <PackageCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+          <span>You own everything needed. You're ready to start!</span>
         </div>
       )}
 
-      {/* Bottom Action Bar */}
-      <div className="flex items-center justify-between pt-4">
-        <Link to="/plan/new" className="text-xs text-ink-muted hover:text-ink font-medium">
-          ← Start over
-        </Link>
+      {saveError && (
+        <div role="alert" className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+          <span>{saveError}</span>
+        </div>
+      )}
 
+      {/* Footer actions */}
+      <div className="flex items-center justify-between pt-2">
+        <Link to="/plan/new" className="text-xs text-ink-muted hover:text-ink">← Start over</Link>
         <button
           type="button"
-          onClick={handleProceedToOptions}
+          onClick={proceed}
           disabled={isSaving || items.length === 0}
-          className="py-3 px-6 bg-evergreen hover:bg-evergreen-dark text-white rounded-xl font-semibold text-sm transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50"
+          className="px-5 py-2.5 bg-evergreen hover:bg-evergreen-dark text-white rounded-xl font-semibold text-sm transition-colors flex items-center gap-2 disabled:opacity-50"
         >
-          <span>{allOwned ? 'View Options Anyway' : `Find ${missingItems.length} Missing Item(s)`}</span>
-          <ArrowRight className="w-4 h-4" />
+          {isSaving ? (
+            <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>Saving...</span></>
+          ) : (
+            <>
+              <span>{allOwned ? 'View Options' : `Find ${missing.length} missing item${missing.length !== 1 ? 's' : ''}`}</span>
+              <ArrowRight className="w-4 h-4" />
+            </>
+          )}
         </button>
       </div>
     </div>
   );
 };
-

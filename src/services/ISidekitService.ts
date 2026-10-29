@@ -37,6 +37,7 @@ export interface ISidekitService {
   getPlan(id: string): Promise<Plan | undefined>;
   updatePlanChecklist(id: string, items: PlanChecklistItem[]): Promise<Plan>;
   getPlanOptions(id: string, newOnly?: boolean): Promise<PlanOptionsMatrix>;
+  registerDemand(itemKey: string, itemName: string): Promise<{ registered: boolean; alreadyRegistered: boolean }>;
   evaluateRepair(data: RepairEvaluationInput): Promise<RepairEvaluationResult>;
 
   // Community Catalog & Listings

@@ -1,215 +1,132 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  Plus,
-  Edit,
-  Pause,
-  Play,
-  XCircle,
-  Wrench,
-  AlertTriangle,
-  Layers,
-} from 'lucide-react';
-import { Listing, ListingStatus } from '@sidekit/shared';
+import { Plus, Edit, Pause, Play, X, Package } from 'lucide-react';
+import { Listing } from '@sidekit/shared';
 import { sidekitService } from '../services';
 import { SampleBadge } from '../components/shared/SampleBadge';
+import { listingPriceLabel } from '../components/shared/listingPrice';
 import { useAuth } from '../context/AuthContext';
+
+const STATUS_STYLES: Record<string, string> = {
+  active: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  paused: 'bg-amber-50 text-amber-700 border-amber-200',
+  closed: 'bg-slate-100 text-slate-600 border-slate-200',
+};
 
 export const MyListingsPage: React.FC = () => {
   const { currentUser } = useAuth();
   const [listings, setListings] = useState<Listing[]>([]);
-  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'paused' | 'closed'>('all');
+  const [tab, setTab] = useState<'all' | 'active' | 'paused' | 'closed'>('all');
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchMyListings = async () => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
       const all = await sidekitService.searchListings();
-      const my = all.filter((l) => l.ownerId === currentUser?.id);
-      setListings(my);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
+      setListings(all.filter((l) => l.ownerId === currentUser?.id));
+    } catch {}
+    setIsLoading(false);
   };
 
-  useEffect(() => {
-    fetchMyListings();
-  }, [currentUser]);
+  useEffect(() => { fetchMyListings(); }, [currentUser]);
 
-  const handleTogglePause = async (listing: Listing) => {
+  const togglePause = async (l: Listing) => {
     try {
-      const nextStatus: ListingStatus = listing.status === 'active' ? 'paused' : 'active';
-      await sidekitService.setListingStatus(listing.id, nextStatus);
+      await sidekitService.setListingStatus(l.id, l.status === 'active' ? 'paused' : 'active');
       fetchMyListings();
-    } catch (err) {
-      console.error(err);
-    }
+    } catch {}
   };
 
-  const handleCloseListing = async (id: string) => {
-    if (window.confirm('Are you sure you want to close this listing? It will no longer appear in search results.')) {
-      try {
-        await sidekitService.setListingStatus(id, 'closed');
-        fetchMyListings();
-      } catch (err) {
-        console.error(err);
-      }
-    }
+  const closeListing = async (id: string) => {
+    if (!window.confirm('Close this listing? It will be hidden from search.')) return;
+    try { await sidekitService.setListingStatus(id, 'closed'); fetchMyListings(); }
+    catch (err: any) { alert(err.message); }
   };
 
-  const filtered = listings.filter((l) => {
-    if (activeTab === 'all') return true;
-    return l.status === activeTab;
-  });
+  const counts = { all: listings.length, active: listings.filter(l => l.status === 'active').length, paused: listings.filter(l => l.status === 'paused').length, closed: listings.filter(l => l.status === 'closed').length };
+  const filtered = tab === 'all' ? listings : listings.filter((l) => l.status === tab);
 
   return (
-    <div className="max-w-5xl mx-auto py-8 px-4 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-surface-border">
+    <div className="max-w-4xl mx-auto py-8 px-4 space-y-6">
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink">My Shared Items</h1>
-          <p className="text-xs text-ink-muted mt-1">
-            Manage your tools and equipment currently listed for neighbours in Palm Grove.
-          </p>
+          <h1 className="text-xl font-bold text-ink">My Listings</h1>
+          <p className="text-xs text-ink-muted mt-0.5">Items you've shared with the community.</p>
         </div>
-
-        <Link
-          to="/my/listings/new"
-          className="py-2.5 px-4 bg-evergreen hover:bg-evergreen-dark text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm shrink-0 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add New Listing</span>
+        <Link to="/my/listings/new"
+          className="flex items-center gap-1.5 px-4 py-2 bg-evergreen hover:bg-evergreen-dark text-white rounded-xl text-xs font-semibold">
+          <Plus className="w-3.5 h-3.5" />
+          New Listing
         </Link>
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-surface-border pb-2">
-        {(['all', 'active', 'paused', 'closed'] as const).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition-colors ${
-              activeTab === tab
-                ? 'bg-evergreen-light text-evergreen-dark'
-                : 'text-ink-muted hover:text-ink'
-            }`}
-          >
-            {tab} ({tab === 'all' ? listings.length : listings.filter((l) => l.status === tab).length})
+      <div className="flex gap-1 border-b border-surface-border pb-0">
+        {(['all', 'active', 'paused', 'closed'] as const).map((t) => (
+          <button key={t} onClick={() => setTab(t)}
+            className={`px-3 py-2 text-xs font-semibold capitalize rounded-t-lg border-b-2 transition-colors ${
+              tab === t ? 'border-evergreen text-evergreen' : 'border-transparent text-ink-muted hover:text-ink'
+            }`}>
+            {t} <span className="text-[10px]">({counts[t]})</span>
           </button>
         ))}
       </div>
 
-      {/* List */}
       {isLoading ? (
-        <div className="py-16 text-center text-xs text-ink-muted">Loading your listings...</div>
+        <div className="py-16 text-center text-sm text-ink-muted">Loading listings...</div>
       ) : filtered.length === 0 ? (
-        <div className="py-16 text-center bg-surface rounded-3xl border border-surface-border space-y-3">
-          <Wrench className="w-8 h-8 text-ink-muted mx-auto" />
-          <h3 className="text-sm font-bold text-ink">No {activeTab !== 'all' ? activeTab : ''} listings found</h3>
-          <p className="text-xs text-ink-muted max-w-sm mx-auto">
-            You don't have any items in this state. List your idle equipment to earn goodwill or modest rent.
-          </p>
-          <Link
-            to="/my/listings/new"
-            className="inline-block mt-2 py-2 px-4 bg-evergreen text-white rounded-xl text-xs font-semibold shadow-sm"
-          >
+        <div className="py-16 text-center bg-white rounded-2xl border border-surface-border space-y-3">
+          <Package className="w-8 h-8 text-ink-muted mx-auto" />
+          <p className="text-sm font-semibold text-ink">No {tab !== 'all' ? tab : ''} listings</p>
+          <Link to="/my/listings/new" className="inline-block px-4 py-2 bg-evergreen text-white rounded-xl text-xs font-semibold">
             List an Item
           </Link>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {filtered.map((l) => (
-            <div
-              key={l.id}
-              className="p-4 bg-surface rounded-2xl border border-surface-border flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm"
-            >
-              <div className="flex items-start sm:items-center gap-3">
-                <img
-                  src={l.photos[0]}
-                  alt={l.title}
-                  className="w-16 h-16 rounded-xl object-cover border border-surface-border shrink-0"
-                />
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-sm font-bold text-ink">{l.title}</h3>
-                    <SampleBadge />
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
-                        l.status === 'active'
-                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                          : l.status === 'paused'
-                          ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                          : 'bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      {l.status}
-                    </span>
-                  </div>
+            <div key={l.id}
+              className="bg-white rounded-xl border border-surface-border p-4 flex flex-col sm:flex-row sm:items-center gap-4">
+              <img src={l.photos[0]} alt={l.title}
+                className="w-14 h-14 rounded-xl object-cover border border-surface-border shrink-0" />
 
-                  <div className="text-xs text-ink-muted flex items-center gap-2 flex-wrap">
-                    <span>Quantity: <strong>{l.totalQuantity}</strong></span>
-                    <span>·</span>
-                    <span className="capitalize">{l.mode.replace('_', ' ')}</span>
-                    <span>·</span>
-                    <span>
-                      {l.mode === 'lend'
-                        ? 'Free Borrow'
-                        : l.price === null
-                        ? 'Unpriced'
-                        : `₹${l.price}${l.priceUnit === 'day' ? '/day' : ''}`}
-                    </span>
-                  </div>
-
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-sm font-bold text-ink truncate">{l.title}</h3>
+                  {l.isSample && <SampleBadge />}
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded border capitalize ${STATUS_STYLES[l.status]}`}>
+                    {l.status}
+                  </span>
                   {l.reportsCount > 0 && (
-                    <div className="text-[11px] text-amber-700 flex items-center gap-1 font-semibold">
-                      <AlertTriangle className="w-3.5 h-3.5" />
-                      <span>{l.reportsCount} Community Report(s)</span>
-                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                      {l.reportsCount} report{l.reportsCount > 1 ? 's' : ''}
+                    </span>
                   )}
                 </div>
+                <p className="text-xs text-ink-muted mt-0.5">
+                  Qty: {l.totalQuantity} · {listingPriceLabel(l)}
+                </p>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-surface-border">
-                <Link
-                  to={`/my/listings/${l.id}/edit`}
-                  className="p-2 text-ink-muted hover:text-ink hover:bg-surface-secondary rounded-xl border border-surface-border text-xs flex items-center gap-1"
-                  title="Edit details"
-                >
+              <div className="flex items-center gap-2 shrink-0">
+                <Link to={`/my/listings/${l.id}/edit`}
+                  className="p-2 text-ink-muted hover:text-ink hover:bg-surface-secondary rounded-lg border border-surface-border transition-colors"
+                  title="Edit">
                   <Edit className="w-3.5 h-3.5" />
-                  <span className="sm:hidden">Edit</span>
                 </Link>
-
-                <button
-                  type="button"
-                  onClick={() => handleTogglePause(l)}
-                  className="px-3 py-1.5 text-ink-muted hover:text-ink hover:bg-surface-secondary rounded-xl border border-surface-border text-xs font-semibold flex items-center gap-1"
-                >
-                  {l.status === 'active' ? (
-                    <>
-                      <Pause className="w-3.5 h-3.5 text-amber-600" />
-                      <span>Pause</span>
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Resume</span>
-                    </>
-                  )}
-                </button>
-
                 {l.status !== 'closed' && (
-                  <button
-                    type="button"
-                    onClick={() => handleCloseListing(l.id)}
-                    className="p-2 text-ink-muted hover:text-rose-600 hover:bg-rose-50 rounded-xl border border-surface-border text-xs"
-                    title="Close listing"
-                  >
-                    <XCircle className="w-3.5 h-3.5" />
-                  </button>
+                  <>
+                    <button onClick={() => togglePause(l)}
+                      className="p-2 text-ink-muted hover:text-ink hover:bg-surface-secondary rounded-lg border border-surface-border transition-colors"
+                      title={l.status === 'active' ? 'Pause' : 'Resume'}>
+                      {l.status === 'active' ? <Pause className="w-3.5 h-3.5 text-amber-600" /> : <Play className="w-3.5 h-3.5 text-emerald-600" />}
+                    </button>
+                    <button onClick={() => closeListing(l.id)}
+                      className="p-2 text-ink-muted hover:text-rose-600 hover:bg-rose-50 rounded-lg border border-surface-border transition-colors"
+                      title="Close">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -219,4 +136,3 @@ export const MyListingsPage: React.FC = () => {
     </div>
   );
 };
-

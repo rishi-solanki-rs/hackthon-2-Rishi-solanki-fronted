@@ -19,21 +19,56 @@ import {
 } from '@sidekit/shared';
 import { ISidekitService } from './ISidekitService';
 
+const CURRENT_USER_KEY = 'sidekit_http_user_id';
+
+/**
+ * Resolves the API base URL. Accepts either the full ".../api" URL or just the backend origin.
+ * Falls back to the relative "/api" path, which the Vite dev server proxies to localhost:4000.
+ */
+export function resolveApiBaseUrl(raw: string | undefined): string {
+  const trimmed = (raw || '').trim().replace(/\/+$/, '');
+  if (!trimmed) return '/api';
+  return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+}
+
 export class HttpSidekitService implements ISidekitService {
   private simulatedOffsetHours = 0;
-  private currentUserId = 'usr_rishi';
 
-  constructor(private baseUrl: string = '/api') {}
+  constructor(private baseUrl: string = resolveApiBaseUrl(import.meta.env.VITE_API_URL)) {
+    // Restore persisted user ID across page refreshes
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(CURRENT_USER_KEY);
+      if (stored) this._currentUserId = stored;
+    }
+  }
+
+  private _currentUserId = 'usr_rishi';
+
+  private get currentUserId(): string {
+    return this._currentUserId;
+  }
+
+  private set currentUserId(id: string) {
+    this._currentUserId = id;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(CURRENT_USER_KEY, id);
+    }
+  }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const headers = new Headers(options.headers || {});
     headers.set('Content-Type', 'application/json');
     headers.set('x-demo-user-id', this.currentUserId);
 
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
-      ...options,
-      headers,
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}${endpoint}`, {
+        ...options,
+        headers,
+      });
+    } catch {
+      throw new Error('Cannot reach the Sidekit server. It may be waking up — please try again in a few seconds.');
+    }
 
     if (!response.ok) {
       let errorMsg = `HTTP ${response.status} ${response.statusText}`;
@@ -44,10 +79,15 @@ export class HttpSidekitService implements ISidekitService {
       throw new Error(errorMsg);
     }
 
+    // Handle empty responses (e.g. 204)
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      return undefined as T;
+    }
     return response.json();
   }
 
-  // --- Clock ---
+  // --- Clock (real time for HTTP mode) ---
   getSimulatedTime(): Date {
     const now = new Date();
     return new Date(now.getTime() + this.simulatedOffsetHours * 3600 * 1000);
@@ -63,7 +103,12 @@ export class HttpSidekitService implements ISidekitService {
 
   // --- Auth & Personas ---
   async getCurrentUser(): Promise<User> {
-    return this.request<User>('/auth/me');
+    const user = await this.request<User>('/auth/me');
+    // The server falls back to a default persona for unknown ids (e.g. a deleted account)
+    if (user?.id && user.id !== this._currentUserId) {
+      this.currentUserId = user.id;
+    }
+    return user;
   }
 
   async switchUser(userId: string): Promise<User> {
@@ -128,6 +173,13 @@ export class HttpSidekitService implements ISidekitService {
     return this.request<PlanOptionsMatrix>(`/plans/${id}/options?newOnly=${newOnly}`);
   }
 
+  async registerDemand(itemKey: string, itemName: string): Promise<{ registered: boolean; alreadyRegistered: boolean }> {
+    return this.request<{ registered: boolean; alreadyRegistered: boolean }>('/demand', {
+      method: 'POST',
+      body: JSON.stringify({ itemKey, itemName }),
+    });
+  }
+
   async evaluateRepair(data: RepairEvaluationInput): Promise<RepairEvaluationResult> {
     return this.request<RepairEvaluationResult>('/plans/repair/evaluate', {
       method: 'POST',
@@ -139,11 +191,12 @@ export class HttpSidekitService implements ISidekitService {
   async searchListings(filters?: ListingSearchFilters): Promise<Listing[]> {
     const params = new URLSearchParams();
     if (filters?.query) params.set('query', filters.query);
-    if (filters?.category) params.set('category', filters.category);
-    if (filters?.mode) params.set('mode', filters.mode);
+    if (filters?.category && filters.category !== 'all') params.set('category', filters.category);
+    if (filters?.mode && filters.mode !== 'all') params.set('mode', filters.mode);
     if (filters?.tower) params.set('tower', filters.tower);
     if (filters?.onlyAvailable) params.set('onlyAvailable', 'true');
-    return this.request<Listing[]>(`/listings?${params.toString()}`);
+    const qs = params.toString();
+    return this.request<Listing[]>(`/listings${qs ? '?' + qs : ''}`);
   }
 
   async getListing(id: string): Promise<Listing | undefined> {
@@ -207,7 +260,7 @@ export class HttpSidekitService implements ISidekitService {
   async declineRequest(requestId: string, reason?: string): Promise<Request> {
     return this.request<Request>(`/requests/${requestId}/decline`, {
       method: 'POST',
-      body: JSON.stringify({ reason }),
+      body: JSON.stringify({ reason: reason || 'Not available at this time' }),
     });
   }
 
@@ -266,4 +319,3 @@ export class HttpSidekitService implements ISidekitService {
     });
   }
 }
-
