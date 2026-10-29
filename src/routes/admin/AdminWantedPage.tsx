@@ -30,7 +30,7 @@ export const AdminWantedPage: React.FC = () => {
     <>
       <AdminPageHeader
         title="Wanted items"
-        description="Things residents asked for with “Notify me when available” because nobody lists them yet. Residents are not notified automatically — use this list to source items or add a listing."
+        description="Things residents requested from their plan because nobody lists them yet. Residents are not notified automatically — use this list to source items or add a listing."
       />
       {error && <Notice kind="error">{error}</Notice>}
 
